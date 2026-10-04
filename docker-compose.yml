@@ -1,0 +1,112 @@
+# =====================================================================
+# TaxPulse AI - full local stack
+#   docker compose up -d --build
+#   UI:       http://localhost:8081
+#   API:      http://localhost:8080/swagger-ui.html
+#   Ollama:   http://localhost:11434
+# Values come from .env (copy .env.example).
+# =====================================================================
+name: taxpulse
+
+services:
+  postgres:
+    # PostgreSQL 16 with the pgvector extension (RAG embeddings).
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-taxpulse}
+      POSTGRES_USER: ${POSTGRES_USER:-taxpulse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # bound to localhost only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [taxpulse]
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 10m
+    volumes:
+      - ollama_models:/root/.ollama   # pulled models survive container re-creation
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [taxpulse]
+    # NVIDIA GPU acceleration (requires nvidia-container-toolkit) - uncomment to enable:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # One-shot job: pulls the chat and embedding models into the shared volume (idempotent).
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - ollama pull ${OLLAMA_CHAT_MODEL:-llama3.2} && ollama pull ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+    restart: "no"
+    networks: [taxpulse]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-taxpulse}
+      DB_USERNAME: ${POSTGRES_USER:-taxpulse}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-PT8H}
+      TAXPULSE_ADMIN_EMAIL: ${TAXPULSE_ADMIN_EMAIL:-}
+      TAXPULSE_ADMIN_PASSWORD: ${TAXPULSE_ADMIN_PASSWORD:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://localhost:5173}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+    volumes:
+      - document_storage:/app/storage
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [taxpulse]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    networks: [taxpulse]
+
+networks:
+  taxpulse:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  ollama_models:
+  document_storage:
