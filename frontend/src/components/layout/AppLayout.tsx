@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Navbar } from './Navbar'
+import { AiAssistant } from '@/components/ai/AiAssistant'
 
 /** Authenticated application shell: sidebar + top bar + routed page content. */
 export function AppLayout() {
@@ -16,6 +17,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <AiAssistant />
     </div>
   )
 }
