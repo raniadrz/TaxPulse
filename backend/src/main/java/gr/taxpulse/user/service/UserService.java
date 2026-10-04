@@ -7,6 +7,7 @@ import gr.taxpulse.user.dto.CreateUserRequest;
 import gr.taxpulse.user.dto.UpdateUserRequest;
 import gr.taxpulse.user.dto.UserResponse;
 import gr.taxpulse.security.CurrentUser;
+import gr.taxpulse.security.UserAccessCache;
 import gr.taxpulse.user.entity.Role;
 import gr.taxpulse.user.entity.User;
 import gr.taxpulse.user.mapper.UserMapper;
@@ -29,6 +30,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final UserAccessCache accessCache;
 
     public List<UserResponse> findAll() {
         return userRepository.findAll(Sort.by("fullName")).stream().map(userMapper::toResponse).toList();
@@ -69,6 +71,7 @@ public class UserService {
         user.setFullName(request.fullName().trim());
         user.setRole(request.role());
         user.setActive(request.active());
+        accessCache.evictAfterCommit(id); // deactivation / role change applies to the next request
         return userMapper.toResponse(user);
     }
 }

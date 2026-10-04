@@ -214,6 +214,8 @@ Use cases:
 ## 🔐 Ασφάλεια
 
 - Stateless JWT (HS256, secret ≥ 32 bytes, υποχρεωτικό στο compose), BCrypt(12), RBAC με `@PreAuthorize`
+- Σε κάθε αίτημα ελέγχεται η τρέχουσα κατάσταση και ο ρόλος του χρήστη (cache 30″, άμεσο evict στις αλλαγές):
+  η απενεργοποίηση ή η αλλαγή ρόλου ισχύει αμέσως, χωρίς να περιμένει τη λήξη του token
 - Ρόλοι: `ADMIN` (χρήστες, διαγραφές), `ACCOUNTANT` (πλήρης διαχείριση), `ASSISTANT` (ανάγνωση και workflow)
 - Uploads: whitelist τύπων, έλεγχος magic bytes για PDF, SHA-256 de-duplication, προστασία από path traversal,
   atomic εγγραφή και καθαρισμός αρχείων σε rollback

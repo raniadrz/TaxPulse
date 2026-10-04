@@ -126,9 +126,19 @@ class TaxPulseIntegrationTest {
                         .content("{\"email\":\"x@test.gr\",\"fullName\":\"X\",\"role\":\"ADMIN\",\"password\":\"0123456789ab\"}"))
                 .andExpect(status().isForbidden());
 
-        // Deactivated users can no longer log in.
+        // A role change applies to the already-issued token on its next request.
+        mvc.perform(auth(put("/api/v1/users/" + assistantId)).content("{\"fullName\":\"Βοηθός\",\"role\":\"ACCOUNTANT\",\"active\":true}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/clients").header(HttpHeaders.AUTHORIZATION, "Bearer " + assistantToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"clientType\":\"INDIVIDUAL\",\"afm\":\"070000005\",\"doy\":\"Α Αθηνών\",\"name\":\"Νέος\",\"bookCategory\":\"NONE\"}"))
+                .andExpect(status().isCreated()); // was 403 while the user was an ASSISTANT
+
+        // Deactivation revokes the existing token immediately and blocks new logins.
         mvc.perform(auth(put("/api/v1/users/" + assistantId)).content("{\"fullName\":\"Βοηθός\",\"role\":\"ASSISTANT\",\"active\":false}"))
                 .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/clients").header(HttpHeaders.AUTHORIZATION, "Bearer " + assistantToken))
+                .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"%s\",\"password\":\"Assist!Passw0rd\"}".formatted(email)))
                 .andExpect(status().isUnauthorized());
