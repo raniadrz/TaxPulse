@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { Select } from '@/components/ui/FormField'
 import { formatCurrency } from '@/lib/format'
@@ -19,16 +20,18 @@ interface ObligationTableProps {
   onStatusChange: (obligation: Obligation, status: ObligationStatus) => void
   onDraftEmail: (obligation: Obligation) => void
   busyId?: string
+  /** Omit the client column (e.g. on a client's own page). */
+  hideClient?: boolean
 }
 
-export function ObligationTable({ obligations, onStatusChange, onDraftEmail, busyId }: ObligationTableProps) {
+export function ObligationTable({ obligations, onStatusChange, onDraftEmail, busyId, hideClient }: ObligationTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
           <tr>
             <th scope="col" className="px-5 py-3">Υποχρέωση</th>
-            <th scope="col" className="px-3 py-3">Πελάτης</th>
+            {!hideClient && <th scope="col" className="px-3 py-3">Πελάτης</th>}
             <th scope="col" className="px-3 py-3">Προθεσμία</th>
             <th scope="col" className="px-3 py-3 text-right">Ποσό</th>
             <th scope="col" className="px-3 py-3">Κατάσταση</th>
@@ -45,10 +48,12 @@ export function ObligationTable({ obligations, onStatusChange, onDraftEmail, bus
                   {o.assignedTo && ` · ${o.assignedTo.fullName}`}
                 </div>
               </td>
-              <td className="px-3 py-3">
-                <div className="text-slate-900">{o.client.name}</div>
-                <div className="font-mono text-xs text-slate-500">{o.client.afm}</div>
-              </td>
+              {!hideClient && (
+                <td className="px-3 py-3">
+                  <Link to={`/clients/${o.client.id}`} className="text-slate-900 hover:text-brand-600 hover:underline">{o.client.name}</Link>
+                  <div className="font-mono text-xs text-slate-500">{o.client.afm}</div>
+                </td>
+              )}
               <td className="px-3 py-3">
                 <DueDateCell dueDate={o.dueDate} daysUntilDue={o.daysUntilDue} status={o.status} />
               </td>

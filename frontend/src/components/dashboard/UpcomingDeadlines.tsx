@@ -25,7 +25,7 @@ export function UpcomingDeadlines({ items }: { items: Obligation[] }) {
           {items.map((o) => (
             <li key={o.id} className="flex items-center gap-4 px-5 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-slate-900">{o.client.name}</p>
+                <Link to={`/clients/${o.client.id}`} className="block truncate text-sm font-medium text-slate-900 hover:text-brand-600 hover:underline">{o.client.name}</Link>
                 <p className="truncate text-xs text-slate-500">
                   {o.obligationTypeLabel} · {o.title}
                 </p>

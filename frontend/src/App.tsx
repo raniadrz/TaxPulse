@@ -10,6 +10,7 @@ import NotFoundPage from '@/pages/NotFoundPage'
 // Route-level code splitting keeps the initial bundle small.
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const ClientsPage = lazy(() => import('@/pages/ClientsPage'))
+const ClientDetailPage = lazy(() => import('@/pages/ClientDetailPage'))
 const ObligationsPage = lazy(() => import('@/pages/ObligationsPage'))
 const DocumentsPage = lazy(() => import('@/pages/DocumentsPage'))
 const UsersPage = lazy(() => import('@/pages/UsersPage'))
@@ -24,6 +25,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:id" element={<ClientDetailPage />} />
               <Route path="obligations" element={<ObligationsPage />} />
               <Route path="documents" element={<DocumentsPage />} />
               <Route element={<ProtectedRoute roles={['ADMIN']} />}>

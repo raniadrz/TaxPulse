@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Building2, Pencil, User } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { bookCategoryLabel } from '@/lib/labels'
@@ -36,7 +37,7 @@ export function ClientTable({ clients, onEdit, compact }: ClientTableProps) {
                     {c.clientType === 'LEGAL_ENTITY' ? <Building2 className="size-4" /> : <User className="size-4" />}
                   </span>
                   <div className="min-w-0">
-                    <div className="truncate font-medium text-slate-900">{c.name}</div>
+                    <Link to={`/clients/${c.id}`} className="block truncate font-medium text-slate-900 hover:text-brand-600 hover:underline">{c.name}</Link>
                     <div className="truncate text-xs text-slate-500">{c.email ?? c.phone ?? (c.primaryKad && `ΚΑΔ ${c.primaryKad}`)}</div>
                   </div>
                   {!c.active && <Badge>Ανενεργός</Badge>}

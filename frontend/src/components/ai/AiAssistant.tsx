@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useMatch } from 'react-router-dom'
 import { MessageSquareText, RotateCcw, ScanText, SendHorizontal, Sparkles, Square, X } from 'lucide-react'
 import { useAiChat } from '@/hooks/useAiChat'
+import { useClient } from '@/hooks/useClients'
 import { cn } from '@/lib/cn'
 import { AiHealthIndicator } from './AiHealthIndicator'
 import { ChatMessageBubble } from './ChatMessageBubble'
 import { ExtractionPanel } from './ExtractionPanel'
+import { OPEN_AI_ASSISTANT_EVENT } from './events'
 
 const suggestions = [
   'Ποιες είναι οι προθεσμίες ΦΠΑ για βιβλία Γ΄ κατηγορίας;',
@@ -17,14 +20,28 @@ type Tab = 'chat' | 'extract'
 /**
  * Floating AI copilot connected to the Spring Boot AI endpoints (local Ollama).
  * Two tools: free chat (optionally grounded on uploaded documents via RAG) and data extraction.
+ * On a client's page the chat is automatically scoped to that client (profile + open obligations,
+ * and RAG restricted to the client's documents).
  */
 export function AiAssistant() {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('chat')
   const [useDocuments, setUseDocuments] = useState(false)
   const [input, setInput] = useState('')
-  const { messages, pending, send, stop, reset } = useAiChat({ useDocuments })
+  const clientMatch = useMatch('/clients/:id')
+  const clientId = clientMatch?.params.id
+  const { data: scopedClient } = useClient(clientId)
+  const { messages, pending, send, stop, reset } = useAiChat({ useDocuments, clientId })
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const openPanel = () => {
+      setOpen(true)
+      setTab('chat')
+    }
+    window.addEventListener(OPEN_AI_ASSISTANT_EVENT, openPanel)
+    return () => window.removeEventListener(OPEN_AI_ASSISTANT_EVENT, openPanel)
+  }, [])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -97,6 +114,11 @@ export function AiAssistant() {
             <ExtractionPanel />
           ) : (
             <>
+              {scopedClient && (
+                <div className="border-b border-slate-100 bg-brand-50 px-4 py-2 text-xs text-brand-700">
+                  Πλαίσιο: <span className="font-semibold">{scopedClient.name}</span> (ΑΦΜ {scopedClient.afm}) — ο βοηθός βλέπει τα στοιχεία και τις ανοιχτές υποχρεώσεις του.
+                </div>
+              )}
               <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
                 {messages.length === 0 && (
                   <div className="space-y-2">
