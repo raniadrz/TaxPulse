@@ -92,6 +92,13 @@
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>${pdfbox.version}</version>
+            <exclusions>
+                <!-- spring-jcl already provides the Commons Logging API -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- ===== API documentation (Swagger UI at /swagger-ui.html) ===== -->
