@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -69,6 +70,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ex.getConstraintViolations().forEach(v -> errors.put(v.getPropertyPath().toString(), v.getMessage()));
         pd.setProperty("errors", errors);
         return pd;
+    }
+
+    /** Unknown {@code sort=} property supplied by the client. */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ProblemDetail handleBadSort(PropertyReferenceException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "invalid-sort", "Invalid sort property", ex.getMessage());
     }
 
     @ExceptionHandler({BadCredentialsException.class, DisabledException.class})
