@@ -11,6 +11,7 @@ import NotFoundPage from '@/pages/NotFoundPage'
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const ClientsPage = lazy(() => import('@/pages/ClientsPage'))
 const ObligationsPage = lazy(() => import('@/pages/ObligationsPage'))
+const DocumentsPage = lazy(() => import('@/pages/DocumentsPage'))
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
               <Route index element={<DashboardPage />} />
               <Route path="clients" element={<ClientsPage />} />
               <Route path="obligations" element={<ObligationsPage />} />
+              <Route path="documents" element={<DocumentsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

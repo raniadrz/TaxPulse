@@ -12,6 +12,10 @@ export const queryKeys = {
     all: ['obligations'] as const,
     list: (params: ObligationSearchParams) => ['obligations', 'list', params] as const,
   },
+  documents: {
+    all: ['documents'] as const,
+    list: (clientId: UUID, page: number) => ['documents', clientId, page] as const,
+  },
   notifications: {
     all: ['notifications'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,

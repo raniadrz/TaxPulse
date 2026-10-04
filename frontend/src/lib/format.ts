@@ -26,3 +26,10 @@ export function formatRelativeDays(days: number): string {
   if (days === -1) return 'χθες'
   return days > 0 ? `σε ${days} ημέρες` : `πριν ${Math.abs(days)} ημέρες`
 }
+
+/** Human readable file size, e.g. 1536 -> "1.5 KB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}

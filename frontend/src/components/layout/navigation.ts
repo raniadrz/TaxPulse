@@ -11,5 +11,5 @@ export const navItems: NavItem[] = [
   { to: '/', label: 'Πίνακας ελέγχου', icon: LayoutDashboard },
   { to: '/clients', label: 'Πελάτες', icon: Users },
   { to: '/obligations', label: 'Φορολογικό ημερολόγιο', icon: CalendarClock },
-  { to: '/documents', label: 'Έγγραφα', icon: FileText, disabled: true },
+  { to: '/documents', label: 'Έγγραφα', icon: FileText },
 ]

@@ -228,6 +228,23 @@ export interface AppNotification {
   createdAt: IsoDateTime
 }
 
+// ---- Documents ----
+export type IngestionStatus = 'PENDING' | 'PROCESSING' | 'INDEXED' | 'FAILED' | 'SKIPPED'
+
+export interface DocumentInfo {
+  id: UUID
+  clientId: UUID
+  obligationId?: UUID
+  originalFilename: string
+  contentType: string
+  sizeBytes: number
+  checksumSha256: string
+  ingestionStatus: IngestionStatus
+  ingestionError?: string
+  uploadedBy?: string
+  createdAt: IsoDateTime
+}
+
 // ---- AI ----
 export type ChatRole = 'USER' | 'ASSISTANT'
 
