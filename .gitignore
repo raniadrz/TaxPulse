@@ -1,0 +1,27 @@
+# ---- OS / IDE ----
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Backend (Maven / Java) ----
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/storage/
+*.log
+hs_err_pid*
+
+# ---- Frontend (Node / Vite) ----
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+npm-debug.log*
