@@ -1,10 +1,13 @@
 package gr.taxpulse.user.service;
 
+import gr.taxpulse.common.exception.BusinessRuleException;
 import gr.taxpulse.common.exception.ConflictException;
 import gr.taxpulse.common.exception.ResourceNotFoundException;
 import gr.taxpulse.user.dto.CreateUserRequest;
 import gr.taxpulse.user.dto.UpdateUserRequest;
 import gr.taxpulse.user.dto.UserResponse;
+import gr.taxpulse.security.CurrentUser;
+import gr.taxpulse.user.entity.Role;
 import gr.taxpulse.user.entity.User;
 import gr.taxpulse.user.mapper.UserMapper;
 import gr.taxpulse.user.repository.UserRepository;
@@ -58,6 +61,11 @@ public class UserService {
     @Transactional
     public UserResponse update(UUID id, UpdateUserRequest request) {
         User user = getEntity(id);
+        // An administrator must never lock themselves out (and possibly the whole office) by accident.
+        boolean self = CurrentUser.get().map(p -> p.id().equals(id)).orElse(false);
+        if (self && (request.role() != Role.ADMIN || !request.active())) {
+            throw new BusinessRuleException("Δεν μπορείτε να αφαιρέσετε τον ρόλο διαχειριστή ή να απενεργοποιήσετε τον δικό σας λογαριασμό");
+        }
         user.setFullName(request.fullName().trim());
         user.setRole(request.role());
         user.setActive(request.active());

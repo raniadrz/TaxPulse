@@ -99,6 +99,42 @@ class TaxPulseIntegrationTest {
     }
 
     @Test
+    void adminCanManageStaffButNotLockThemselvesOut() throws Exception {
+        String me = json.readTree(mvc.perform(auth(get("/api/v1/auth/me"))).andReturn().getResponse().getContentAsString())
+                .get("id").asText();
+        mvc.perform(auth(put("/api/v1/users/" + me)).content("{\"fullName\":\"Admin\",\"role\":\"ACCOUNTANT\",\"active\":true}"))
+                .andExpect(status().isUnprocessableEntity());
+        mvc.perform(auth(put("/api/v1/users/" + me)).content("{\"fullName\":\"Admin\",\"role\":\"ADMIN\",\"active\":false}"))
+                .andExpect(status().isUnprocessableEntity());
+
+        String email = "assistant-" + UUID.randomUUID() + "@test.gr";
+        String created = mvc.perform(auth(post("/api/v1/users")).content("""
+                        {"email":"%s","fullName":"Βοηθός","role":"ASSISTANT","password":"Assist!Passw0rd"}
+                        """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String assistantId = json.readTree(created).get("id").asText();
+
+        // The assistant can log in, read clients, but cannot create users or clients.
+        String assistantToken = json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"%s\",\"password\":\"Assist!Passw0rd\"}".formatted(email)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).get("accessToken").asText();
+        mvc.perform(get("/api/v1/clients").header(HttpHeaders.AUTHORIZATION, "Bearer " + assistantToken))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/users").header(HttpHeaders.AUTHORIZATION, "Bearer " + assistantToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"x@test.gr\",\"fullName\":\"X\",\"role\":\"ADMIN\",\"password\":\"0123456789ab\"}"))
+                .andExpect(status().isForbidden());
+
+        // Deactivated users can no longer log in.
+        mvc.perform(auth(put("/api/v1/users/" + assistantId)).content("{\"fullName\":\"Βοηθός\",\"role\":\"ASSISTANT\",\"active\":false}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"%s\",\"password\":\"Assist!Passw0rd\"}".formatted(email)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void clientLifecycleWithValidationSearchAndUpdate() throws Exception {
         JsonNode client = createClient("094014201", "ΑΛΦΑ ΛΟΓΙΣΤΙΚΗ ΑΕ");
         assertThat(client.get("activityCodes").get(0).get("code").asText()).isEqualTo("69201001");
