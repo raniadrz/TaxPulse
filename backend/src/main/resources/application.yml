@@ -111,6 +111,7 @@ ollama:
   read-timeout: ${OLLAMA_READ_TIMEOUT:PT180S}   # local CPU inference can be slow
   keep-alive: 10m
   temperature: 0.2
+  context-window: ${OLLAMA_NUM_CTX:8192}
   rag:
     chunk-size: 1200          # characters per chunk
     chunk-overlap: 200
