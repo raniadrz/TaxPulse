@@ -11,6 +11,7 @@ import gr.taxpulse.client.entity.Client;
 import gr.taxpulse.client.entity.ClientActivityCode;
 import gr.taxpulse.client.entity.ClientRepresentative;
 import gr.taxpulse.client.service.ClientObligationStatsPort.Stats;
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -52,6 +53,9 @@ public class ClientMapper {
                 c.getLegalForm(), c.getBookCategory(), c.getGemiNumber(), c.getEmail(), c.getPhone(),
                 c.getMobile(), toAddressDto(c.getAddress()), accountant, c.getNotes(), c.isActive(),
                 c.getActivityCodes().stream()
+                        // Primary first; @OrderBy only applies when the collection is loaded from the DB.
+                        .sorted(Comparator.comparing(ClientActivityCode::isPrimary).reversed()
+                                .thenComparing(ClientActivityCode::getCode))
                         .map(k -> new ActivityCodeDto(k.getCode(), k.getDescription(), k.isPrimary())).toList(),
                 c.getRepresentatives().stream()
                         .map(r -> new RepresentativeDto(r.getId(), r.getFullName(), r.getAfm(), r.getRole(),

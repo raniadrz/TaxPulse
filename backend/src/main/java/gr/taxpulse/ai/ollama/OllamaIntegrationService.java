@@ -18,6 +18,7 @@ import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -77,6 +78,7 @@ public class OllamaIntegrationService implements ChatModelClient, EmbeddingModel
                 properties.chatModel(), messages, false, format, options(temperature), properties.keepAlive());
         OllamaChatResponse response = call("chat", properties.chatModel(), () -> restClient.post()
                 .uri("/api/chat")
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
                 .body(OllamaChatResponse.class));
@@ -107,6 +109,7 @@ public class OllamaIntegrationService implements ChatModelClient, EmbeddingModel
                 properties.chatModel(), prompt, systemPrompt, false, format, options(temperature), properties.keepAlive());
         OllamaGenerateResponse response = call("generate", properties.chatModel(), () -> restClient.post()
                 .uri("/api/generate")
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
                 .body(OllamaGenerateResponse.class));
@@ -126,6 +129,7 @@ public class OllamaIntegrationService implements ChatModelClient, EmbeddingModel
         OllamaEmbedRequest request = new OllamaEmbedRequest(properties.embeddingModel(), inputs, properties.keepAlive());
         OllamaEmbedResponse response = call("embed", properties.embeddingModel(), () -> restClient.post()
                 .uri("/api/embed")
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
                 .body(OllamaEmbedResponse.class));
