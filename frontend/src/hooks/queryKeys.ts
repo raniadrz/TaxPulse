@@ -21,5 +21,6 @@ export const queryKeys = {
     unreadCount: ['notifications', 'unread-count'] as const,
     list: ['notifications', 'list'] as const,
   },
+  users: ['users'] as const,
   aiHealth: ['ai', 'health'] as const,
 }

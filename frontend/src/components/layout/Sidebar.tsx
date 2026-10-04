@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Activity, ShieldCheck, X } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useAuth } from '@/hooks/useAuth'
 import { navItems } from './navigation'
 
 interface SidebarProps {
@@ -10,6 +11,8 @@ interface SidebarProps {
 
 /** Primary navigation. Static on desktop, slide-over drawer on mobile. */
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const { hasRole } = useAuth()
+  const items = navItems.filter((item) => !item.roles || hasRole(...item.roles))
   return (
     <>
       {open && <div className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden" onClick={onClose} aria-hidden />}
@@ -32,7 +35,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map(({ to, label, icon: Icon, disabled }) =>
+          {items.map(({ to, label, icon: Icon, disabled }) =>
             disabled ? (
               <span key={to} className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500">
                 <Icon className="size-5" />

@@ -12,6 +12,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const ClientsPage = lazy(() => import('@/pages/ClientsPage'))
 const ObligationsPage = lazy(() => import('@/pages/ObligationsPage'))
 const DocumentsPage = lazy(() => import('@/pages/DocumentsPage'))
+const UsersPage = lazy(() => import('@/pages/UsersPage'))
 
 export default function App() {
   return (
@@ -25,6 +26,9 @@ export default function App() {
               <Route path="clients" element={<ClientsPage />} />
               <Route path="obligations" element={<ObligationsPage />} />
               <Route path="documents" element={<DocumentsPage />} />
+              <Route element={<ProtectedRoute roles={['ADMIN']} />}>
+                <Route path="users" element={<UsersPage />} />
+              </Route>
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>
