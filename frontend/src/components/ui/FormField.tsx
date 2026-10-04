@@ -31,7 +31,7 @@ export function Field({ label, error, hint, required, children, className }: {
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(
   ({ className, invalid, ...rest }, ref) => (
-    <input ref={ref} className={cn(controlClass, invalid && 'ring-red-400', className)} {...rest} />
+    <input ref={ref} className={cn(controlClass, invalid && 'ring-red-400 focus:ring-red-500', className)} aria-invalid={invalid || undefined} {...rest} />
   ),
 )
 Input.displayName = 'Input'

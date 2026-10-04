@@ -27,7 +27,7 @@ export default function DashboardPage() {
     <>
       <PageHeader title={`Καλημέρα, ${user?.fullName.split(' ')[0] ?? ''}`} description="Επισκόπηση γραφείου και επερχόμενων προθεσμιών" />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Ενεργοί πελάτες" value={s.activeClients} icon={Users} />
         <StatCard label="Ανοιχτές υποχρεώσεις" value={s.openObligations} icon={ListTodo} />
         <StatCard label="Λήγουν σε 7 ημέρες" value={s.dueWithin7Days} icon={CalendarClock} emphasis={s.dueWithin7Days > 0 ? 'warning' : 'default'} />

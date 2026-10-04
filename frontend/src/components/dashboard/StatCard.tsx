@@ -14,7 +14,7 @@ interface StatCardProps {
 /** KPI tile: a single headline number needs no chart. */
 export function StatCard({ label, value, icon: Icon, hint, emphasis = 'default' }: StatCardProps) {
   return (
-    <Card className="p-5">
+    <Card className="p-4 sm:p-5">
       <div className="flex items-start justify-between">
         <p className="text-sm font-medium text-slate-500">{label}</p>
         <span
@@ -28,7 +28,7 @@ export function StatCard({ label, value, icon: Icon, hint, emphasis = 'default' 
           <Icon className="size-5" aria-hidden />
         </span>
       </div>
-      <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl sm:text-3xl font-semibold tabular-nums tracking-tight text-slate-900">{value}</p>
       {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </Card>
   )

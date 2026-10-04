@@ -31,7 +31,7 @@ export function StatusBreakdown({ counts }: { counts: Record<ObligationStatus, n
           </div>
         )}
 
-        <dl className="mt-4 grid grid-cols-2 gap-3">
+        <dl className="mt-4 space-y-2.5">
           {statusOrder.map((s) => {
             const { icon: Icon, color } = statusVisual[s]
             const share = total ? Math.round(((counts[s] ?? 0) / total) * 100) : 0
