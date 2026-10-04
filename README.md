@@ -107,8 +107,10 @@ frontend/src
 │   ├── dashboard/     # StatCard, StatusBreakdown, UpcomingDeadlines
 │   ├── clients/       # ClientTable, ClientFormModal, ClientComplianceBadge
 │   ├── obligations/   # ObligationTable, status badges, ReminderEmailModal (AI)
+│   ├── documents/     # DocumentUploadZone (drag & drop), DocumentTable, AskDocumentsPanel (RAG)
+│   ├── users/         # UserFormModal
 │   └── ai/            # AiAssistant (floating chat + extraction), ChatMessageBubble
-├── pages/             # Login, Dashboard, Clients, Obligations
+├── pages/             # Login, Dashboard, Clients, Obligations, Documents, Users (ADMIN)
 ├── services/          # apiClient (Axios + JWT interceptor) και ένα module ανά feature
 ├── hooks/             # React Query hooks, useAiChat, useAuth, useDebounce
 ├── context/           # AuthProvider
