@@ -12,12 +12,13 @@ import { Pagination } from '@/components/ui/Pagination'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorAlert } from '@/components/ui/Alert'
-import { useChangeObligationStatus, useObligations } from '@/hooks/useObligations'
+import { useObligations } from '@/hooks/useObligations'
+import { useObligationActions } from '@/hooks/useObligationActions'
 import { useAuth } from '@/hooks/useAuth'
 import { getErrorMessage } from '@/lib/errors'
 import { obligationStatusLabel, obligationTypeLabel } from '@/lib/labels'
 import { cn } from '@/lib/cn'
-import type { Obligation, ObligationStatus, ObligationType } from '@/types/api'
+import type { ObligationStatus, ObligationType } from '@/types/api'
 
 export default function ObligationsPage() {
   const { hasRole } = useAuth()
@@ -28,7 +29,6 @@ export default function ObligationsPage() {
   const [mine, setMine] = useState(false)
   const [page, setPage] = useState(0)
   const [creating, setCreating] = useState(false)
-  const [emailFor, setEmailFor] = useState<Obligation | null>(null)
 
   const obligations = useObligations({
     status: statuses,
@@ -40,16 +40,11 @@ export default function ObligationsPage() {
     size: 20,
     sort: 'dueDate,asc',
   })
-  const changeStatus = useChangeObligationStatus()
+  const { onStatusChange, statusError, busyId, emailFor, setEmailFor } = useObligationActions()
 
   const toggleStatus = (s: ObligationStatus) => {
     setPage(0)
     setStatuses((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]))
-  }
-
-  const onStatusChange = (o: Obligation, status: ObligationStatus) => {
-    const submissionRef = status === 'SUBMITTED' ? window.prompt('Αριθμός πρωτοκόλλου υποβολής (προαιρετικό):') ?? undefined : undefined
-    changeStatus.mutate({ id: o.id, status, submissionRef })
   }
 
   return (
@@ -89,7 +84,7 @@ export default function ObligationsPage() {
           </label>
         </div>
 
-        {changeStatus.isError && <div className="p-4"><ErrorAlert>{getErrorMessage(changeStatus.error)}</ErrorAlert></div>}
+        {statusError && <div className="p-4"><ErrorAlert>{getErrorMessage(statusError)}</ErrorAlert></div>}
         {obligations.isLoading && <Spinner />}
         {obligations.isError && <div className="p-4"><ErrorAlert>{getErrorMessage(obligations.error)}</ErrorAlert></div>}
         {obligations.data && obligations.data.content.length === 0 && (
@@ -101,7 +96,7 @@ export default function ObligationsPage() {
               obligations={obligations.data.content}
               onStatusChange={onStatusChange}
               onDraftEmail={setEmailFor}
-              busyId={changeStatus.isPending ? changeStatus.variables?.id : undefined}
+              busyId={busyId}
             />
             <Pagination page={obligations.data} onPageChange={setPage} />
           </>
