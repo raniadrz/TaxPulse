@@ -7,6 +7,8 @@ import gr.taxpulse.ai.ollama.ChatModelClient;
 import gr.taxpulse.ai.ollama.OllamaProperties;
 import gr.taxpulse.ai.ollama.dto.OllamaMessage;
 import gr.taxpulse.ai.prompt.PromptTemplates;
+import gr.taxpulse.ai.rag.RagService;
+import gr.taxpulse.ai.rag.RetrievedChunk;
 import gr.taxpulse.client.entity.Client;
 import gr.taxpulse.client.service.ClientService;
 import gr.taxpulse.obligation.dto.ObligationSearchCriteria;
@@ -20,7 +22,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Copilot chat. Optionally grounded on a client's profile and open obligations. */
+/** Copilot chat. Optionally grounded on a client's profile, open obligations and documents (RAG). */
 @Service
 @RequiredArgsConstructor
 public class AiChatService {
@@ -32,6 +34,7 @@ public class AiChatService {
     private final OllamaProperties ollamaProperties;
     private final ClientService clientService;
     private final TaxObligationService obligationService;
+    private final RagService ragService;
 
     @Transactional(readOnly = true)
     public ChatResponse chat(ChatRequest request) {
@@ -40,8 +43,41 @@ public class AiChatService {
         if (request.clientId() != null) {
             messages.add(OllamaMessage.system(clientContext(request.clientId())));
         }
+        List<RetrievedChunk> passages = List.of();
+        if (request.useDocuments()) {
+            passages = lastUserMessage(request.messages())
+                    .map(question -> ragService.retrieve(question, request.clientId()))
+                    .orElse(List.of());
+            if (!passages.isEmpty()) {
+                messages.add(OllamaMessage.system(RagService.toContext(passages)));
+            }
+        }
         messages.addAll(toOllama(request.messages()));
-        return new ChatResponse(chatModel.chat(messages), ollamaProperties.chatModel(), List.of());
+        return new ChatResponse(chatModel.chat(messages), ollamaProperties.chatModel(), RagService.toSources(passages));
+    }
+
+    /** Standalone question answering over the document index (RAG). */
+    @Transactional(readOnly = true)
+    public ChatResponse askDocuments(String question, java.util.UUID clientId) {
+        List<RetrievedChunk> passages = ragService.retrieve(question, clientId);
+        if (passages.isEmpty()) {
+            return new ChatResponse("Δεν βρέθηκαν σχετικά αποσπάσματα στα ευρετηριασμένα έγγραφα.",
+                    ollamaProperties.chatModel(), List.of());
+        }
+        List<OllamaMessage> messages = List.of(
+                OllamaMessage.system(PromptTemplates.ASSISTANT_SYSTEM),
+                OllamaMessage.system(RagService.toContext(passages)),
+                OllamaMessage.user(question));
+        return new ChatResponse(chatModel.chat(messages), ollamaProperties.chatModel(), RagService.toSources(passages));
+    }
+
+    private static java.util.Optional<String> lastUserMessage(List<ChatMessageDto> history) {
+        for (int i = history.size() - 1; i >= 0; i--) {
+            if (history.get(i).role() == ChatMessageDto.Role.USER) {
+                return java.util.Optional.of(history.get(i).content());
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     static List<OllamaMessage> toOllama(List<ChatMessageDto> history) {

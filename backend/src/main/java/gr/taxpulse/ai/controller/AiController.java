@@ -2,6 +2,7 @@ package gr.taxpulse.ai.controller;
 
 import gr.taxpulse.ai.dto.ChatRequest;
 import gr.taxpulse.ai.dto.ChatResponse;
+import gr.taxpulse.ai.dto.DocumentQuestionRequest;
 import gr.taxpulse.ai.dto.ExtractionRequest;
 import gr.taxpulse.ai.dto.ExtractionResponse;
 import gr.taxpulse.ai.dto.ReminderEmailRequest;
@@ -45,6 +46,12 @@ public class AiController {
     @PostMapping("/reminder-email")
     public ReminderEmailResponse reminderEmail(@Valid @RequestBody ReminderEmailRequest request) {
         return reminderEmailService.draft(request);
+    }
+
+    /** RAG: answer a question from the indexed documents (optionally of one client), with sources. */
+    @PostMapping("/documents/ask")
+    public ChatResponse askDocuments(@Valid @RequestBody DocumentQuestionRequest request) {
+        return chatService.askDocuments(request.question(), request.clientId());
     }
 
     @GetMapping("/health")
