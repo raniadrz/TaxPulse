@@ -17,6 +17,14 @@
     <name>TaxPulse AI Backend</name>
     <description>B2B SaaS platform for Greek accounting offices</description>
 
+    <licenses>
+        <license>
+            <name>Proprietary - All rights reserved</name>
+            <url>LICENSE</url>
+            <distribution>manual</distribution>
+        </license>
+    </licenses>
+
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
