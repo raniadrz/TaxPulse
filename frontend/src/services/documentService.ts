@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient'
+import { saveBlob } from '@/lib/download'
 import type { DocumentInfo, PageResponse, UUID } from '@/types/api'
 
 export const documentService = {
@@ -25,12 +26,7 @@ export const documentService = {
    */
   async download(doc: DocumentInfo): Promise<void> {
     const { data } = await apiClient.get<Blob>(`/documents/${doc.id}/download`, { responseType: 'blob', timeout: 120_000 })
-    const url = URL.createObjectURL(data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = doc.originalFilename
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(data, doc.originalFilename)
   },
 
   async reindex(id: UUID): Promise<DocumentInfo> {

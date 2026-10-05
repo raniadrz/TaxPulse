@@ -86,6 +86,8 @@ function ClientForm({ clientId, initial, onClose }: { clientId?: UUID; initial: 
     const request: ClientRequest = {
       ...form,
       activityCodes: codes.filter((c) => c.code.trim()),
+      // These inputs are hidden for natural persons; don't keep values typed before switching type.
+      ...(form.clientType === 'INDIVIDUAL' && { legalForm: undefined, gemiNumber: undefined }),
     }
     save.mutate({ id: clientId, request }, { onSuccess: onClose })
   }

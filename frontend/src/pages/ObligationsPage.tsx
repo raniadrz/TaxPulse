@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CalendarClock, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { ObligationTable } from '@/components/obligations/ObligationTable'
+import { ObligationMessagesModal } from '@/components/messages/ObligationMessagesModal'
 import { ObligationFormModal } from '@/components/obligations/ObligationFormModal'
 import { ReminderEmailModal } from '@/components/obligations/ReminderEmailModal'
 import { statusOrder } from '@/components/obligations/status'
@@ -40,7 +41,7 @@ export default function ObligationsPage() {
     size: 20,
     sort: 'dueDate,asc',
   })
-  const { onStatusChange, statusError, busyId, emailFor, setEmailFor } = useObligationActions()
+  const { onStatusChange, statusError, busyId, emailFor, setEmailFor, messagesFor, setMessagesFor } = useObligationActions()
 
   const toggleStatus = (s: ObligationStatus) => {
     setPage(0)
@@ -96,6 +97,7 @@ export default function ObligationsPage() {
               obligations={obligations.data.content}
               onStatusChange={onStatusChange}
               onDraftEmail={setEmailFor}
+              onMessages={setMessagesFor}
               busyId={busyId}
             />
             <Pagination page={obligations.data} onPageChange={setPage} />
@@ -105,6 +107,10 @@ export default function ObligationsPage() {
 
       {creating && <ObligationFormModal onClose={() => setCreating(false)} />}
       <ReminderEmailModal obligation={emailFor} onClose={() => setEmailFor(null)} />
+      {messagesFor && (
+        <ObligationMessagesModal scope="staff" obligationId={messagesFor.id} title={`${messagesFor.client.name} · ${messagesFor.title}`}
+          onClose={() => setMessagesFor(null)} />
+      )}
     </>
   )
 }

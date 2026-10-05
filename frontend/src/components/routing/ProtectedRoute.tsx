@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Spinner } from '@/components/ui/Spinner'
+import { homePathFor } from '@/lib/routes'
 import type { Role } from '@/types/api'
 
 /** Guards nested routes: requires authentication and, optionally, one of the given roles. */
@@ -10,6 +11,6 @@ export function ProtectedRoute({ roles }: { roles?: Role[] }) {
 
   if (initializing) return <Spinner className="h-full" label="Έλεγχος σύνδεσης…" />
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />
-  if (roles && !hasRole(...roles)) return <Navigate to="/" replace />
+  if (roles && !hasRole(...roles)) return <Navigate to={homePathFor(user.role)} replace />
   return <Outlet />
 }

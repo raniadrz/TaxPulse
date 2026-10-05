@@ -37,4 +37,5 @@ export const roleLabel: Record<Role, string> = {
   ADMIN: 'Διαχειριστής',
   ACCOUNTANT: 'Λογιστής',
   ASSISTANT: 'Βοηθός',
+  CLIENT: 'Πελάτης',
 }

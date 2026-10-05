@@ -35,7 +35,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {items.map(({ to, label, icon: Icon, disabled }) =>
+          {items.map(({ to, label, icon: Icon, disabled, end }) =>
             disabled ? (
               <span key={to} className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500">
                 <Icon className="size-5" />
@@ -46,7 +46,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <NavLink
                 key={to}
                 to={to}
-                end={to === '/'}
+                end={end}
                 onClick={onClose}
                 className={({ isActive }) =>
                   cn(

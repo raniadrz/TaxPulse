@@ -13,7 +13,9 @@ import gr.taxpulse.user.entity.User;
 import gr.taxpulse.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,8 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Core of the automated alert system:
  * <ol>
- *   <li>flags open obligations whose deadline has passed as {@code OVERDUE} and alerts staff;</li>
- *   <li>sends "due in N days" reminders for each configured offset (default 7, 3, 1).</li>
+ *   <li>flags open obligations whose deadline has passed as {@code OVERDUE} and alerts staff about
+ *       every overdue obligation (once, thanks to the dedup key);</li>
+ *   <li>sends "due in N days" reminders for each configured offset (default 7, 3, 1);</li>
+ *   <li>asks the client, through its portal accounts, for missing documents of obligations still
+ *       awaiting them.</li>
  * </ol>
  * Every notification carries a deterministic dedup key, so the job is safe to re-run at any time.
  */
@@ -33,6 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeadlineReminderService {
 
     private static final DateTimeFormatter GREEK_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final Set<ObligationStatus> PAST_DUE_CANDIDATES =
+            EnumSet.of(ObligationStatus.PENDING_DOCS, ObligationStatus.IN_PROGRESS, ObligationStatus.OVERDUE);
 
     private final TaxObligationRepository obligationRepository;
     private final UserRepository userRepository;
@@ -47,13 +54,18 @@ public class DeadlineReminderService {
 
         int overdue = 0;
         int notifications = 0;
-        for (TaxObligation o : obligationRepository.findOpenPastDue(today, ObligationStatus.OPEN)) {
+        // OVERDUE is included: an obligation created (or rescheduled) with a past due date is
+        // OVERDUE right away and would otherwise never raise its alert. Dedup keys keep this cheap.
+        for (TaxObligation o : obligationRepository.findPastDue(today, PAST_DUE_CANDIDATES)) {
             if (o.markOverdueIfPastDue(today)) {
                 overdue++;
-                for (User recipient : recipientsOf(o, admins)) {
-                    if (notificationService.notify(overdueNotice(o, recipient))) {
-                        notifications++;
-                    }
+            }
+            if (o.getStatus() != ObligationStatus.OVERDUE) {
+                continue;
+            }
+            for (User recipient : recipientsOf(o, admins)) {
+                if (notificationService.notify(overdueNotice(o, recipient))) {
+                    notifications++;
                 }
             }
         }
@@ -66,6 +78,13 @@ public class DeadlineReminderService {
                         notifications++;
                     }
                 }
+                if (o.getStatus() == ObligationStatus.PENDING_DOCS) {
+                    for (User portalUser : userRepository.findByClientIdAndActiveTrue(o.getClient().getId())) {
+                        if (notificationService.notify(documentsRequestNotice(o, portalUser, daysBefore))) {
+                            notifications++;
+                        }
+                    }
+                }
             }
         }
 
@@ -74,7 +93,7 @@ public class DeadlineReminderService {
         return result;
     }
 
-    /** Assignee, else the client's accountant, else every active administrator. */
+    /** Assignee, else the client's accountant, else every active administrator (staff only). */
     private static List<User> recipientsOf(TaxObligation o, List<User> admins) {
         User target = o.getAssignedTo() != null ? o.getAssignedTo() : o.getClient().getAssignedAccountant();
         if (target != null && target.isActive()) {
@@ -91,6 +110,17 @@ public class DeadlineReminderService {
                         GREEK_DATE.format(o.getDueDate()), statusLabel(o.getStatus()));
         // Due date is part of the key: a rescheduled deadline produces fresh reminders.
         String key = "UPCOMING:%s:%s:D-%d:%s".formatted(o.getId(), recipient.getId(), daysBefore, o.getDueDate());
+        return new NotificationCommand(recipient.getId(), recipient.getEmail(), NotificationType.DEADLINE_UPCOMING,
+                title, message, o.getId(), o.getClient().getId(), key);
+    }
+
+    /** Client-facing wording: no internal status, just what is needed and by when. */
+    private static NotificationCommand documentsRequestNotice(TaxObligation o, User recipient, int daysBefore) {
+        String when = daysBefore == 1 ? "αύριο" : "σε %d ημέρες".formatted(daysBefore);
+        String title = "Χρειαζόμαστε δικαιολογητικά: %s (λήξη %s)".formatted(o.getObligationType().label(), when);
+        String message = "Για την υποχρέωση «%s» με προθεσμία %s, παρακαλούμε ανεβάστε τα δικαιολογητικά από το portal."
+                .formatted(o.getTitle(), GREEK_DATE.format(o.getDueDate()));
+        String key = "PORTAL_DOCS:%s:%s:D-%d:%s".formatted(o.getId(), recipient.getId(), daysBefore, o.getDueDate());
         return new NotificationCommand(recipient.getId(), recipient.getEmail(), NotificationType.DEADLINE_UPCOMING,
                 title, message, o.getId(), o.getClient().getId(), key);
     }

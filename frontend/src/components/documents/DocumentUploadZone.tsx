@@ -1,9 +1,7 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { UploadCloud } from 'lucide-react'
-import { useUploadDocument } from '@/hooks/useDocuments'
 import { getErrorMessage } from '@/lib/errors'
 import { cn } from '@/lib/cn'
-import type { UUID } from '@/types/api'
 
 /** Must match the backend whitelist (DocumentService.ALLOWED_TYPES). */
 const ACCEPT = '.pdf,.txt,.csv,.md,.png,.jpg,.jpeg,.xlsx,.docx'
@@ -15,12 +13,14 @@ interface UploadState {
   error?: string
 }
 
-/** Drag & drop / click-to-browse uploader. Files are sent one by one so progress is per file. */
-export function DocumentUploadZone({ clientId }: { clientId: UUID }) {
+/**
+ * Drag & drop / click-to-browse uploader. Files are sent one by one so progress is per file.
+ * The caller decides where a file goes (staff upload for a client, or the client portal).
+ */
+export function DocumentUploadZone({ onUpload }: { onUpload: (file: File, onProgress: (percent: number) => void) => Promise<unknown> }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [uploads, setUploads] = useState<UploadState[]>([])
-  const upload = useUploadDocument()
 
   const update = (name: string, patch: Partial<UploadState>) =>
     setUploads((list) => list.map((u) => (u.name === name ? { ...u, ...patch } : u)))
@@ -35,7 +35,7 @@ export function DocumentUploadZone({ clientId }: { clientId: UUID }) {
         continue
       }
       try {
-        await upload.mutateAsync({ clientId, file, onProgress: (progress) => update(file.name, { progress }) })
+        await onUpload(file, (progress) => update(file.name, { progress }))
         update(file.name, { progress: 100 })
       } catch (err) {
         update(file.name, { error: getErrorMessage(err) })

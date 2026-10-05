@@ -9,6 +9,7 @@ import gr.taxpulse.common.exception.ResourceNotFoundException;
 import gr.taxpulse.document.dto.DocumentResponse;
 import gr.taxpulse.document.entity.Document;
 import gr.taxpulse.document.entity.IngestionStatus;
+import gr.taxpulse.document.event.DocumentAddedEvent;
 import gr.taxpulse.document.event.DocumentUploadedEvent;
 import gr.taxpulse.document.mapper.DocumentMapper;
 import gr.taxpulse.document.repository.DocumentRepository;
@@ -16,6 +17,7 @@ import gr.taxpulse.document.storage.DocumentStorage;
 import gr.taxpulse.obligation.entity.TaxObligation;
 import gr.taxpulse.obligation.service.TaxObligationService;
 import gr.taxpulse.security.CurrentUser;
+import gr.taxpulse.user.entity.Role;
 import gr.taxpulse.user.service.UserService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -107,6 +109,9 @@ public class DocumentService {
         if (saved.getIngestionStatus() == IngestionStatus.PENDING) {
             events.publishEvent(new DocumentUploadedEvent(saved.getId()));
         }
+        boolean fromClient = CurrentUser.get().map(p -> p.role() == Role.CLIENT).orElse(false);
+        events.publishEvent(new DocumentAddedEvent(saved.getId(), clientId, obligationId, saved.getOriginalFilename(),
+                saved.getUploadedBy() == null ? null : saved.getUploadedBy().getId(), fromClient));
         log.info("Document uploaded id={} client={} type={} size={}", saved.getId(), clientId, contentType, file.getSize());
         return mapper.toResponse(saved);
     }
@@ -121,7 +126,19 @@ public class DocumentService {
     }
 
     public DownloadableDocument download(UUID id) {
+        return toDownloadable(getDetailed(id));
+    }
+
+    /** Download restricted to one client's documents: someone else's document is reported as missing (404). */
+    public DownloadableDocument downloadForClient(UUID id, UUID clientId) {
         Document doc = getDetailed(id);
+        if (!doc.getClient().getId().equals(clientId)) {
+            throw new ResourceNotFoundException("Document", id);
+        }
+        return toDownloadable(doc);
+    }
+
+    private DownloadableDocument toDownloadable(Document doc) {
         return new DownloadableDocument(storage.load(doc.getStorageKey()), doc.getOriginalFilename(),
                 doc.getContentType(), doc.getSizeBytes());
     }

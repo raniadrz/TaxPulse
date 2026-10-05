@@ -6,7 +6,7 @@ import { ErrorAlert } from '@/components/ui/Alert'
 import { useCreateUser, useUpdateUser } from '@/hooks/useUsers'
 import { getErrorMessage, getFieldErrors } from '@/lib/errors'
 import { roleLabel } from '@/lib/labels'
-import type { Role, User } from '@/types/api'
+import { STAFF_ROLES, type Role, type User } from '@/types/api'
 
 const MIN_PASSWORD = 10
 
@@ -61,7 +61,7 @@ export function UserFormModal({ user, isSelf, onClose }: { user?: User; isSelf?:
         </Field>
         <Field label="Ρόλος" required hint={isSelf ? 'Δεν μπορείτε να αλλάξετε τον δικό σας ρόλο.' : undefined}>
           <Select value={role} disabled={isSelf} onChange={(e) => setRole(e.target.value as Role)}>
-            {Object.entries(roleLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {STAFF_ROLES.map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
           </Select>
         </Field>
         {!isEdit && (

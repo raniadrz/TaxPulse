@@ -9,15 +9,20 @@ import gr.taxpulse.obligation.dto.ObligationSearchCriteria;
 import gr.taxpulse.obligation.dto.StatusUpdateRequest;
 import gr.taxpulse.obligation.entity.ObligationStatus;
 import gr.taxpulse.obligation.entity.TaxObligation;
+import gr.taxpulse.obligation.event.ObligationStatusChangedEvent;
 import gr.taxpulse.obligation.mapper.ObligationMapper;
 import gr.taxpulse.obligation.repository.ObligationSpecifications;
 import gr.taxpulse.obligation.repository.TaxObligationRepository;
 import gr.taxpulse.security.CurrentUser;
 import gr.taxpulse.user.service.UserService;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -27,7 +32,6 @@ import org.springframework.util.StringUtils;
 /** Use-cases of the tax calendar: CRUD, workflow transitions and filtered listing. */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TaxObligationService {
 
@@ -36,6 +40,24 @@ public class TaxObligationService {
     private final ClientService clientService;
     private final UserService userService;
     private final OfficeClock officeClock;
+    private final ApplicationEventPublisher events;
+    private final ObligationActivityPort activityPort;
+
+    public TaxObligationService(TaxObligationRepository repository,
+                                ObligationMapper mapper,
+                                ClientService clientService,
+                                UserService userService,
+                                OfficeClock officeClock,
+                                ApplicationEventPublisher events,
+                                ObjectProvider<ObligationActivityPort> activityPort) {
+        this.repository = repository;
+        this.mapper = mapper;
+        this.clientService = clientService;
+        this.userService = userService;
+        this.officeClock = officeClock;
+        this.events = events;
+        this.activityPort = activityPort.getIfAvailable(() -> ObligationActivityPort.NONE);
+    }
 
     public PageResponse<ObligationResponse> search(ObligationSearchCriteria c, Pageable pageable) {
         UUID assignee = Boolean.TRUE.equals(c.mine()) ? CurrentUser.require().id() : c.assignedToId();
@@ -48,11 +70,17 @@ public class TaxObligationService {
                 ObligationSpecifications.dueFrom(c.dueFrom()),
                 ObligationSpecifications.dueTo(c.dueTo()));
         LocalDate today = officeClock.today();
-        return PageResponse.from(repository.findAll(spec, pageable), o -> mapper.toResponse(o, today));
+        Page<TaxObligation> page = repository.findAll(spec, pageable);
+        // One batched lookup for the whole page instead of one per row.
+        Map<UUID, ObligationActivityPort.Activity> activity =
+                activityPort.activityFor(page.getContent().stream().map(TaxObligation::getId).toList());
+        return PageResponse.from(page, o -> mapper.toResponse(o, today,
+                activity.getOrDefault(o.getId(), ObligationActivityPort.Activity.EMPTY)));
     }
 
     public ObligationResponse findById(UUID id) {
-        return mapper.toResponse(getDetailed(id), officeClock.today());
+        return mapper.toResponse(getDetailed(id), officeClock.today(),
+                activityPort.activityFor(List.of(id)).getOrDefault(id, ObligationActivityPort.Activity.EMPTY));
     }
 
     @Transactional
@@ -92,6 +120,11 @@ public class TaxObligationService {
         repository.flush();
         log.info("Obligation {} status {} -> {} by {}", id, previous, obligation.getStatus(),
                 CurrentUser.get().map(p -> p.email()).orElse("system"));
+        if (obligation.getStatus() != previous) {
+            events.publishEvent(new ObligationStatusChangedEvent(obligation.getId(), obligation.getClient().getId(),
+                    obligation.getTitle(), obligation.getObligationType().label(), previous, obligation.getStatus(),
+                    obligation.getSubmissionRef()));
+        }
         return mapper.toResponse(obligation, officeClock.today());
     }
 
@@ -108,7 +141,7 @@ public class TaxObligationService {
     /** Explicit assignee wins; otherwise default to the client's accountant. */
     private gr.taxpulse.user.entity.User resolveAssignee(UUID assigneeId, TaxObligation obligation) {
         if (assigneeId != null) {
-            return userService.getEntity(assigneeId);
+            return userService.getStaffEntity(assigneeId);
         }
         return obligation.getClient().getAssignedAccountant();
     }

@@ -16,6 +16,7 @@ public class UserMapper {
                 user.getRole(),
                 user.isActive(),
                 user.getLastLoginAt(),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.getClientId());
     }
 }

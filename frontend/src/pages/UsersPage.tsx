@@ -15,7 +15,7 @@ import { formatDateTime } from '@/lib/format'
 import { roleLabel } from '@/lib/labels'
 import type { Role, User } from '@/types/api'
 
-const roleTone: Record<Role, BadgeTone> = { ADMIN: 'indigo', ACCOUNTANT: 'blue', ASSISTANT: 'gray' }
+const roleTone: Record<Role, BadgeTone> = { ADMIN: 'indigo', ACCOUNTANT: 'blue', ASSISTANT: 'gray', CLIENT: 'green' }
 
 /** Staff account administration (ADMIN only; the route and API both enforce it). */
 export default function UsersPage() {

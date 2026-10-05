@@ -25,4 +25,9 @@ public record PageResponse<T>(
                 page.getTotalPages(),
                 page.isLast());
     }
+
+    /** Same page, with each element converted (e.g. to a narrower DTO). */
+    public <R> PageResponse<R> map(Function<T, R> mapper) {
+        return new PageResponse<>(content.stream().map(mapper).toList(), page, size, totalElements, totalPages, last);
+    }
 }

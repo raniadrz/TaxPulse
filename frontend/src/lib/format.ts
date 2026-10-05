@@ -3,6 +3,12 @@ const dateFmt = new Intl.DateTimeFormat('el-GR', { day: '2-digit', month: '2-dig
 const dateTimeFmt = new Intl.DateTimeFormat('el-GR', { dateStyle: 'short', timeStyle: 'short' })
 const currencyFmt = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' })
 
+/** Today's calendar date in the user's time zone as yyyy-MM-dd (toISOString() would give the UTC date). */
+export function todayIsoDate(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** "2026-10-20" -> "20/10/2026" (parsed as a calendar date, not shifted by time zone). */
 export function formatDate(iso?: string | null): string {
   if (!iso) return '—'

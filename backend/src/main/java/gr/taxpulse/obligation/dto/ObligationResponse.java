@@ -26,7 +26,10 @@ public record ObligationResponse(
         String notes,
         Instant createdAt,
         Instant updatedAt,
-        long version) {
+        long version,
+        /** Documents attached from the client portal (e.g. "documents arrived" hint while PENDING_DOCS). */
+        long clientDocuments,
+        long messageCount) {
 
     public record ClientRef(UUID id, String name, String afm) {
     }

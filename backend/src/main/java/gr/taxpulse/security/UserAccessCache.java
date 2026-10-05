@@ -14,7 +14,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Current {@code active} flag and role of each user, consulted on every authenticated request so
+ * Current {@code active} flag, role and client binding of each user, consulted on every authenticated request so
  * that deactivations and role changes take effect immediately instead of when the JWT expires.
  *
  * <p>Entries live for a short TTL to keep this to roughly one indexed primary-key lookup per user
@@ -43,7 +43,7 @@ public class UserAccessCache {
             return Optional.of(cached.status());
         }
         Optional<AccessStatus> loaded = userRepository.findAccessStatusById(userId)
-                .map(v -> new AccessStatus(v.getActive(), v.getRole()));
+                .map(v -> new AccessStatus(v.isEnabled(), v.getRole(), v.getClientId()));
         loaded.ifPresentOrElse(
                 status -> entries.put(userId, new Entry(status, now.plus(TTL))),
                 () -> entries.remove(userId));
@@ -64,7 +64,7 @@ public class UserAccessCache {
         }
     }
 
-    public record AccessStatus(boolean active, Role role) {
+    public record AccessStatus(boolean active, Role role, UUID clientId) {
     }
 
     private record Entry(AccessStatus status, Instant expiresAt) {

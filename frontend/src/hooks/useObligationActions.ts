@@ -4,11 +4,12 @@ import type { Obligation, ObligationStatus } from '@/types/api'
 
 /**
  * Row actions shared by every obligations table: workflow transitions (asking for the submission
- * protocol number on SUBMITTED) and the AI reminder e-mail dialog target.
+ * protocol number on SUBMITTED), the AI reminder e-mail dialog target and the client conversation.
  */
 export function useObligationActions() {
   const changeStatus = useChangeObligationStatus()
   const [emailFor, setEmailFor] = useState<Obligation | null>(null)
+  const [messagesFor, setMessagesFor] = useState<Obligation | null>(null)
 
   const onStatusChange = (o: Obligation, status: ObligationStatus) => {
     const submissionRef =
@@ -22,5 +23,7 @@ export function useObligationActions() {
     busyId: changeStatus.isPending ? changeStatus.variables?.id : undefined,
     emailFor,
     setEmailFor,
+    messagesFor,
+    setMessagesFor,
   }
 }

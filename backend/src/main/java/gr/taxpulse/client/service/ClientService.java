@@ -133,6 +133,6 @@ public class ClientService {
     }
 
     private void assignAccountant(Client client, UUID accountantId) {
-        client.setAssignedAccountant(accountantId == null ? null : userService.getEntity(accountantId));
+        client.setAssignedAccountant(accountantId == null ? null : userService.getStaffEntity(accountantId));
     }
 }

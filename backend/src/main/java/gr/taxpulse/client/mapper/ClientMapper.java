@@ -110,7 +110,7 @@ public class ClientMapper {
         return new Address(blankToNull(dto.street()), blankToNull(dto.city()), blankToNull(postal));
     }
 
-    private static AddressDto toAddressDto(Address a) {
+    public static AddressDto toAddressDto(Address a) {
         return a == null ? null : new AddressDto(a.getStreet(), a.getCity(), a.getPostalCode());
     }
 

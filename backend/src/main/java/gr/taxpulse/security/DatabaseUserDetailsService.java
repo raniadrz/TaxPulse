@@ -19,7 +19,13 @@ public class DatabaseUserDetailsService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) {
         return userRepository.findByEmailIgnoreCase(email)
-                .map(UserPrincipal::from)
+                .map(user -> {
+                    UserPrincipal principal = UserPrincipal.from(user);
+                    // A portal account of a deactivated client is treated as disabled.
+                    boolean clientActive = user.getClientId() == null
+                            || userRepository.findClientActive(user.getClientId()).orElse(false);
+                    return clientActive ? principal : principal.withActive(false);
+                })
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 }

@@ -1,7 +1,7 @@
 # TaxPulse AI — Smart Accounting & Client Operations Platform
 
 B2B SaaS πλατφόρμα για ελληνικά λογιστικά γραφεία: **CRM πελατών**, **φορολογικό ημερολόγιο με αυτόματες
-υπενθυμίσεις** και **τοπικός AI Copilot (Ollama)**. Τα δεδομένα δεν φεύγουν από το γραφείο, κάτι που
+υπενθυμίσεις**, **portal πελατών** και **τοπικός AI Copilot (Ollama)**. Τα δεδομένα δεν φεύγουν από το γραφείο, κάτι που
 διευκολύνει τη συμμόρφωση με τον GDPR.
 
 | Layer | Τεχνολογίες |
@@ -86,6 +86,8 @@ backend/src/main/java/gr/taxpulse
     ├── rag/         # TextChunker, PgVectorStore, DocumentIngestionService, RagService
     ├── service/     # use cases: chat, data extraction, reminder emails
     └── controller/
+├── message/         # συζήτηση λογιστή και πελάτη ανά υποχρέωση
+└── portal/          # portal πελατών: λογαριασμοί CLIENT, /api/v1/portal, ειδοποιήσεις ανάμεσα σε γραφείο και πελάτη
 ```
 
 Αρχές σχεδίασης:
@@ -111,6 +113,7 @@ frontend/src
 │   ├── users/         # UserFormModal
 │   └── ai/            # AiAssistant (floating chat + extraction), ChatMessageBubble
 ├── pages/             # Login, Dashboard, Clients, Obligations, Documents, Users (ADMIN)
+│   └── portal/        # σελίδες πελάτη (CLIENT): επισκόπηση, υποχρεώσεις, έγγραφα, AI, στοιχεία
 ├── services/          # apiClient (Axios + JWT interceptor) και ένα module ανά feature
 ├── hooks/             # React Query hooks, useAiChat, useAuth, useDebounce
 ├── context/           # AuthProvider
@@ -132,6 +135,10 @@ frontend/src
   - trigram GIN index (`pg_trgm`) για ILIKE αναζήτηση στην επωνυμία
   - CHECK constraints για enums και κανόνες (π.χ. `SUBMITTED ⇒ submitted_at`)
 - `V2__rag_vector_store.sql`: `document_chunks` με `vector(768)` και HNSW index (cosine).
+- `V3__client_portal_accounts.sql`: ρόλος `CLIENT` και `users.client_id`. Ένας CHECK εξασφαλίζει ότι κάθε
+  λογαριασμός πελάτη δένεται με έναν πελάτη και κανένας λογαριασμός προσωπικού με κανέναν.
+- `V4__obligation_messages.sql`: `obligation_messages` (συζήτηση λογιστή και πελάτη ανά υποχρέωση) και οι τύποι ειδοποιήσεων
+  `MESSAGE`, `STATUS_CHANGED`, `DOCUMENT_RECEIVED`.
 
 Το Hibernate τρέχει με `ddl-auto: validate`. Το σχήμα ανήκει αποκλειστικά στο Flyway.
 
@@ -155,6 +162,14 @@ frontend/src
 | GET | `/dashboard/stats` | όλοι |
 | POST | `/ai/chat` · `/ai/extract` · `/ai/reminder-email` · `/ai/documents/ask` | όλοι |
 | GET | `/ai/health` | όλοι |
+| GET · POST/PUT | `/clients/{id}/portal-accounts[/{userId}]` | όλοι · ADMIN, ACCOUNTANT |
+| GET | `/portal/profile` · `/portal/obligations?status=` · `/portal/documents` | CLIENT |
+| POST/GET | `/portal/documents` · `/portal/documents/{id}/download` | CLIENT |
+| POST | `/portal/ai/ask` | CLIENT |
+| GET/POST | `/obligations/{id}/messages` · `/portal/obligations/{id}/messages` | όλοι · CLIENT (μόνο δικές του) |
+
+Στον παραπάνω πίνακα το «όλοι» σημαίνει όλο το προσωπικό. Ο ρόλος `CLIENT` έχει πρόσβαση μόνο στο `/portal/**`,
+στο `/auth/me` και στις δικές του ειδοποιήσεις.
 
 Η πλήρης τεκμηρίωση είναι στο Swagger UI.
 
@@ -216,7 +231,12 @@ Use cases:
 - Stateless JWT (HS256, secret ≥ 32 bytes, υποχρεωτικό στο compose), BCrypt(12), RBAC με `@PreAuthorize`
 - Σε κάθε αίτημα ελέγχεται η τρέχουσα κατάσταση και ο ρόλος του χρήστη (cache 30″, άμεσο evict στις αλλαγές):
   η απενεργοποίηση ή η αλλαγή ρόλου ισχύει αμέσως, χωρίς να περιμένει τη λήξη του token
-- Ρόλοι: `ADMIN` (χρήστες, διαγραφές), `ACCOUNTANT` (πλήρης διαχείριση), `ASSISTANT` (ανάγνωση και workflow)
+- Ρόλοι: `ADMIN` (χρήστες, διαγραφές), `ACCOUNTANT` (πλήρης διαχείριση), `ASSISTANT` (ανάγνωση και workflow),
+  `CLIENT` (portal πελάτη)
+- Portal πελάτη: ο λογαριασμός `CLIENT` περιορίζεται από τους κανόνες URL στο `/api/v1/portal/**`. Όλο το υπόλοιπο API
+  είναι μόνο για το προσωπικό, οπότε ένα νέο endpoint δεν εκτίθεται κατά λάθος σε πελάτες. Ο πελάτης προκύπτει από
+  τη βάση σε κάθε αίτημα και δεν διαβάζεται ποτέ από το αίτημα. Οι απαντήσεις του portal δεν περιέχουν εσωτερικές
+  σημειώσεις ή αναθέσεις
 - Uploads: whitelist τύπων, έλεγχος magic bytes για PDF, SHA-256 de-duplication, προστασία από path traversal,
   atomic εγγραφή και καθαρισμός αρχείων σε rollback
 - nginx: CSP, `X-Frame-Options: DENY`, `nosniff`, `no-referrer`

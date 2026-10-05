@@ -28,7 +28,7 @@ class JwtServiceTest {
 
     private static final String SECRET = "test-secret-test-secret-test-secret-1234";
     private final UserPrincipal principal =
-            new UserPrincipal(UUID.randomUUID(), "a@b.gr", "Μαρία Π.", Role.ACCOUNTANT, "hash", true);
+            new UserPrincipal(UUID.randomUUID(), "a@b.gr", "Μαρία Π.", Role.ACCOUNTANT, "hash", true, null);
 
     @Test
     void roundTripPreservesIdentityAndRole() {

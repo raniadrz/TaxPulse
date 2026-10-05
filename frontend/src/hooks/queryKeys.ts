@@ -1,4 +1,4 @@
-import type { ClientSearchParams, ObligationSearchParams, UUID } from '@/types/api'
+import type { ClientSearchParams, ObligationSearchParams, ObligationStatus, UUID } from '@/types/api'
 
 /** Centralised React Query keys: one place to reason about cache invalidation. */
 export const queryKeys = {
@@ -22,5 +22,13 @@ export const queryKeys = {
     list: ['notifications', 'list'] as const,
   },
   users: ['users'] as const,
+  portalAccounts: (clientId: UUID) => ['portal-accounts', clientId] as const,
+  messages: (obligationId: UUID) => ['messages', obligationId] as const,
+  portal: {
+    all: ['portal'] as const,
+    profile: ['portal', 'profile'] as const,
+    obligations: (status: ObligationStatus[], sort?: string) => ['portal', 'obligations', status, sort] as const,
+    documents: (page: number) => ['portal', 'documents', page] as const,
+  },
   aiHealth: ['ai', 'health'] as const,
 }

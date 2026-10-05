@@ -25,7 +25,10 @@ export interface ProblemDetail {
 }
 
 // ---- Auth / users ----
-export type Role = 'ADMIN' | 'ACCOUNTANT' | 'ASSISTANT'
+export type Role = 'ADMIN' | 'ACCOUNTANT' | 'ASSISTANT' | 'CLIENT'
+
+/** Office staff roles; CLIENT accounts use the client portal instead. */
+export const STAFF_ROLES: Role[] = ['ADMIN', 'ACCOUNTANT', 'ASSISTANT']
 
 export interface User {
   id: UUID
@@ -35,6 +38,8 @@ export interface User {
   active: boolean
   lastLoginAt?: IsoDateTime
   createdAt: IsoDateTime
+  /** Set only for CLIENT (portal) accounts. */
+  clientId?: UUID
 }
 
 export interface AuthResponse {
@@ -176,6 +181,9 @@ export interface Obligation {
   createdAt: IsoDateTime
   updatedAt: IsoDateTime
   version: number
+  /** Documents attached from the client portal. */
+  clientDocuments: number
+  messageCount: number
 }
 
 export interface ObligationRequest {
@@ -215,7 +223,14 @@ export interface DashboardStats {
 }
 
 // ---- Notifications ----
-export type NotificationType = 'DEADLINE_UPCOMING' | 'DEADLINE_OVERDUE' | 'DOCUMENT_PROCESSED' | 'SYSTEM'
+export type NotificationType =
+  | 'DEADLINE_UPCOMING'
+  | 'DEADLINE_OVERDUE'
+  | 'DOCUMENT_PROCESSED'
+  | 'SYSTEM'
+  | 'MESSAGE'
+  | 'STATUS_CHANGED'
+  | 'DOCUMENT_RECEIVED'
 
 export interface AppNotification {
   id: UUID
@@ -309,4 +324,50 @@ export interface OllamaHealth {
   embeddingModelAvailable: boolean
   installedModels: string[]
   error?: string
+}
+
+// ---- Client portal ----
+export interface PortalProfile {
+  id: UUID
+  clientType: ClientType
+  name: string
+  afm: string
+  doy: string
+  legalForm?: string
+  email?: string
+  phone?: string
+  address?: Address
+  accountant?: { fullName: string; email: string }
+  openObligations: number
+  overdueObligations: number
+  nextDueDate?: IsoDate
+}
+
+/** An obligation as the client sees it (no internal notes or assignee). */
+export interface PortalObligation {
+  id: UUID
+  obligationType: ObligationType
+  obligationTypeLabel: string
+  title: string
+  description?: string
+  periodStart?: IsoDate
+  periodEnd?: IsoDate
+  dueDate: IsoDate
+  daysUntilDue: number
+  status: ObligationStatus
+  amount?: number
+  submittedAt?: IsoDateTime
+  submissionRef?: string
+  messageCount: number
+}
+
+/** One message of an obligation's accountant/client conversation. */
+export interface ObligationMessage {
+  id: UUID
+  authorName: string
+  fromClient: boolean
+  /** Written by the current viewer. */
+  mine: boolean
+  body: string
+  createdAt: IsoDateTime
 }

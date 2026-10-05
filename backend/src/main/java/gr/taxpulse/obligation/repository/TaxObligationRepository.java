@@ -34,7 +34,7 @@ public interface TaxObligationRepository
             """)
     List<TaxObligation> findForReminder(LocalDate dueDate, Collection<ObligationStatus> statuses);
 
-    /** Open obligations whose deadline has passed: input of the overdue job (index ix_obl_open_due_date). */
+    /** Obligations in the given statuses whose deadline has passed: input of the overdue job. */
     @Query("""
             select o from TaxObligation o
               join fetch o.client c
@@ -42,7 +42,7 @@ public interface TaxObligationRepository
               left join fetch c.assignedAccountant
              where o.dueDate < :today and o.status in :statuses
             """)
-    List<TaxObligation> findOpenPastDue(LocalDate today, Collection<ObligationStatus> statuses);
+    List<TaxObligation> findPastDue(LocalDate today, Collection<ObligationStatus> statuses);
 
     /** Per-client counters for the CRM list (single grouped query for a whole page). */
     @Query("""

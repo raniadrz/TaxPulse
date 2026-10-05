@@ -1,6 +1,8 @@
 package gr.taxpulse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -14,8 +16,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gr.taxpulse.ai.ollama.OllamaIntegrationService;
 import gr.taxpulse.ai.rag.VectorStore;
+import gr.taxpulse.security.UserAccessCache;
 import gr.taxpulse.support.PostgresTestContainer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -58,6 +62,8 @@ class TaxPulseIntegrationTest {
     JdbcTemplate jdbc;
     @Autowired
     VectorStore vectorStore;
+    @Autowired
+    UserAccessCache accessCache;
     @MockitoBean
     OllamaIntegrationService embeddingClient; // no Ollama in CI: embeddings are stubbed
 
@@ -244,6 +250,20 @@ class TaxPulseIntegrationTest {
         mvc.perform(auth(post("/api/v1/obligations/reminders/run")))
                 .andExpect(jsonPath("$.notificationsCreated").value(0));
 
+        // Created already past due -> OVERDUE at once, yet the overdue alert is still raised, once.
+        String late = json.readTree(mvc.perform(auth(post("/api/v1/obligations")).content("""
+                        {"clientId":"%s","obligationType":"APD","title":"ΑΠΔ που ξεχάστηκε","dueDate":"%s"}
+                        """.formatted(client.get("id").asText(), today.minusDays(4))))
+                .andExpect(jsonPath("$.status").value("OVERDUE"))
+                .andReturn().getResponse().getContentAsString()).get("id").asText();
+        mvc.perform(auth(post("/api/v1/obligations/reminders/run")))
+                .andExpect(jsonPath("$.markedOverdue").value(0))
+                .andExpect(jsonPath("$.notificationsCreated").value(1));
+        mvc.perform(auth(post("/api/v1/obligations/reminders/run")))
+                .andExpect(jsonPath("$.notificationsCreated").value(0));
+        mvc.perform(auth(get("/api/v1/notifications?size=50")))
+                .andExpect(jsonPath("$.content[?(@.type == 'DEADLINE_OVERDUE' && @.obligationId == '%s')]".formatted(late)).isNotEmpty());
+
         mvc.perform(auth(get("/api/v1/notifications/unread-count")))
                 .andExpect(jsonPath("$.count").isNumber());
         mvc.perform(auth(get("/api/v1/notifications?unreadOnly=true")))
@@ -304,6 +324,202 @@ class TaxPulseIntegrationTest {
         mvc.perform(multipart("/api/v1/clients/" + clientId + "/documents").file(file)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void portalAccountSeesOnlyItsOwnClientData() throws Exception {
+        String ownId = createClient("777000013", "ΖΗΤΑ ΑΕ").get("id").asText();
+        String otherId = createClient("777000025", "ΗΤΑ ΑΕ").get("id").asText();
+        LocalDate today = LocalDate.now(ZoneId.of("Europe/Athens"));
+        for (String clientId : List.of(ownId, otherId)) {
+            mvc.perform(auth(post("/api/v1/obligations")).content("""
+                            {"clientId":"%s","obligationType":"VAT","title":"ΦΠΑ","dueDate":"%s","notes":"εσωτερική σημείωση"}
+                            """.formatted(clientId, today.plusDays(7))))
+                    .andExpect(status().isCreated());
+        }
+        MockMultipartFile otherFile = new MockMultipartFile("file", "allou.txt", "text/plain",
+                "Έγγραφο άλλου πελάτη".getBytes(StandardCharsets.UTF_8));
+        String otherDocId = json.readTree(mvc.perform(multipart("/api/v1/clients/" + otherId + "/documents").file(otherFile)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+
+        // Portal accounts are created from the client, never through the staff user API.
+        mvc.perform(auth(post("/api/v1/users")).content("""
+                        {"email":"x-%s@test.gr","fullName":"X","role":"CLIENT","password":"Client!Passw0rd"}
+                        """.formatted(UUID.randomUUID())))
+                .andExpect(status().isUnprocessableEntity());
+        String email = "portal-" + UUID.randomUUID() + "@test.gr";
+        String account = mvc.perform(auth(post("/api/v1/clients/" + ownId + "/portal-accounts")).content("""
+                        {"email":"%s","fullName":"Ζήτα Πελάτης","password":"Client!Passw0rd"}
+                        """.formatted(email)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role").value("CLIENT"))
+                .andExpect(jsonPath("$.clientId").value(ownId))
+                .andReturn().getResponse().getContentAsString();
+        String accountId = json.readTree(account).get("id").asText();
+        mvc.perform(auth(get("/api/v1/users")))
+                .andExpect(jsonPath("$[?(@.role == 'CLIENT')]").isEmpty());
+        // ...and can never be assigned office work.
+        mvc.perform(auth(post("/api/v1/obligations")).content("""
+                        {"clientId":"%s","obligationType":"VAT","title":"X","dueDate":"%s","assignedToId":"%s"}
+                        """.formatted(ownId, today.plusDays(5), accountId)))
+                .andExpect(status().isUnprocessableEntity());
+
+        String clientToken = json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"%s\",\"password\":\"Client!Passw0rd\"}".formatted(email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.role").value("CLIENT"))
+                .andReturn().getResponse().getContentAsString()).get("accessToken").asText();
+        String bearer = "Bearer " + clientToken;
+
+        // Staff API is closed to clients; the portal is closed to staff.
+        for (String path : List.of("/api/v1/clients", "/api/v1/clients/" + otherId, "/api/v1/obligations",
+                "/api/v1/users", "/api/v1/dashboard/stats", "/api/v1/clients/" + otherId + "/documents",
+                "/api/v1/documents/" + otherDocId + "/download")) {
+            mvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, bearer)).andExpect(status().isForbidden());
+        }
+        mvc.perform(post("/api/v1/ai/documents/ask").header(HttpHeaders.AUTHORIZATION, bearer)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"question\":\"ΦΠΑ;\",\"clientId\":\"%s\"}".formatted(otherId)))
+                .andExpect(status().isForbidden());
+        mvc.perform(auth(get("/api/v1/portal/profile"))).andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/v1/auth/me").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(jsonPath("$.clientId").value(ownId));
+        mvc.perform(get("/api/v1/portal/profile").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("ΖΗΤΑ ΑΕ"))
+                .andExpect(jsonPath("$.openObligations").value(1))
+                .andExpect(jsonPath("$.notes").doesNotExist());
+        mvc.perform(get("/api/v1/portal/obligations").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].notes").doesNotExist())
+                .andExpect(jsonPath("$.content[0].assignedTo").doesNotExist());
+
+        // Upload lands on the caller's own client; another client's document is invisible (404).
+        MockMultipartFile ownFile = new MockMultipartFile("file", "timologio.txt", "text/plain",
+                "Τιμολόγιο ΖΗΤΑ".getBytes(StandardCharsets.UTF_8));
+        String ownDoc = mvc.perform(multipart("/api/v1/portal/documents").file(ownFile).header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.clientId").value(ownId))
+                .andReturn().getResponse().getContentAsString();
+        mvc.perform(get("/api/v1/portal/documents").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        mvc.perform(get("/api/v1/portal/documents/" + json.readTree(ownDoc).get("id").asText() + "/download")
+                        .header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/portal/documents/" + otherDocId + "/download").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isNotFound());
+
+        // Deactivating the client closes its portal: the token stops working and login is refused.
+        String ownJson = mvc.perform(auth(get("/api/v1/clients/" + ownId))).andReturn().getResponse().getContentAsString();
+        ObjectNode deactivated = (ObjectNode) json.readTree(ownJson);
+        deactivated.put("active", false);
+        mvc.perform(auth(put("/api/v1/clients/" + ownId)).content(deactivated.toString())).andExpect(status().isOk());
+        accessCache.evictAfterCommit(UUID.fromString(accountId)); // skip the 30s cache TTL for a deterministic test
+        mvc.perform(get("/api/v1/portal/profile").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"%s\",\"password\":\"Client!Passw0rd\"}".formatted(email)))
+                .andExpect(status().isUnauthorized());
+        deactivated.put("active", true);
+        mvc.perform(auth(put("/api/v1/clients/" + ownId)).content(deactivated.toString())).andExpect(status().isOk());
+        accessCache.evictAfterCommit(UUID.fromString(accountId));
+        bearer = "Bearer " + loginAs(email, "Client!Passw0rd");
+
+        // Deactivating the portal account revokes its token right away.
+        mvc.perform(auth(put("/api/v1/clients/" + ownId + "/portal-accounts/" + accountId))
+                        .content("{\"fullName\":\"Ζήτα Πελάτης\",\"active\":false}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/portal/profile").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void accountantAndClientInteractThroughPortal() throws Exception {
+        String clientId = createClient("666000016", "ΘΗΤΑ ΑΕ").get("id").asText();
+        String otherClientId = createClient("666000028", "ΙΩΤΑ ΑΕ").get("id").asText();
+        LocalDate today = LocalDate.now(ZoneId.of("Europe/Athens"));
+        String accountantEmail = "acc-" + UUID.randomUUID() + "@test.gr";
+        String accountantId = json.readTree(mvc.perform(auth(post("/api/v1/users")).content("""
+                        {"email":"%s","fullName":"Λογιστής Θήτα","role":"ACCOUNTANT","password":"Accnt!Passw0rd"}
+                        """.formatted(accountantEmail)))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        String obligationId = json.readTree(mvc.perform(auth(post("/api/v1/obligations")).content("""
+                        {"clientId":"%s","obligationType":"VAT","title":"ΦΠΑ Οκτωβρίου","dueDate":"%s","assignedToId":"%s"}
+                        """.formatted(clientId, today.plusDays(10), accountantId)))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        String otherObligationId = json.readTree(mvc.perform(auth(post("/api/v1/obligations")).content("""
+                        {"clientId":"%s","obligationType":"VAT","title":"ΦΠΑ","dueDate":"%s"}
+                        """.formatted(otherClientId, today.plusDays(10))))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        String clientEmail = "theta-" + UUID.randomUUID() + "@test.gr";
+        mvc.perform(auth(post("/api/v1/clients/" + clientId + "/portal-accounts")).content("""
+                        {"email":"%s","fullName":"Πελάτης Θήτα","password":"Client!Passw0rd"}
+                        """.formatted(clientEmail)))
+                .andExpect(status().isCreated());
+        String accountant = "Bearer " + loginAs(accountantEmail, "Accnt!Passw0rd");
+        String client = "Bearer " + loginAs(clientEmail, "Client!Passw0rd");
+
+        // Client sends documents for the obligation -> the assignee is told, and the calendar shows it.
+        MockMultipartFile invoices = new MockMultipartFile("file", "timologia.txt", "text/plain",
+                "Τιμολόγια Οκτωβρίου".getBytes(StandardCharsets.UTF_8));
+        mvc.perform(multipart("/api/v1/portal/documents").file(invoices).param("obligationId", obligationId)
+                        .header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$.content[?(@.type == 'DOCUMENT_RECEIVED')].obligationId").value(obligationId))
+                .andExpect(jsonPath("$.content[?(@.type == 'DOCUMENT_RECEIVED')].clientId").value(clientId));
+        mvc.perform(get("/api/v1/obligations/" + obligationId).header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$.clientDocuments").value(1));
+
+        // Conversation in both directions, each side notified of the other's message.
+        mvc.perform(post("/api/v1/portal/obligations/" + obligationId + "/messages").header(HttpHeaders.AUTHORIZATION, client)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"Λείπει ένα τιμολόγιο, το στέλνω αύριο.\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.fromClient").value(true))
+                .andExpect(jsonPath("$.mine").value(true));
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$.content[?(@.type == 'MESSAGE')]").isNotEmpty());
+        mvc.perform(post("/api/v1/obligations/" + obligationId + "/messages").header(HttpHeaders.AUTHORIZATION, accountant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"Εντάξει, ευχαριστούμε.\"}"))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/v1/portal/obligations/" + obligationId + "/messages").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].mine").value(true))
+                .andExpect(jsonPath("$[1].authorName").value("Λογιστής Θήτα"))
+                .andExpect(jsonPath("$[1].mine").value(false));
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.content[?(@.type == 'MESSAGE')]").isNotEmpty());
+
+        // A portal account cannot read or write another client's conversation; staff use their own route.
+        mvc.perform(get("/api/v1/portal/obligations/" + otherObligationId + "/messages").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/portal/obligations/" + otherObligationId + "/messages").header(HttpHeaders.AUTHORIZATION, client)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"x\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/obligations/" + obligationId + "/messages").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(status().isForbidden());
+
+        // Workflow progress and documents shared by the office reach the client.
+        mvc.perform(patch("/api/v1/obligations/" + obligationId + "/status").header(HttpHeaders.AUTHORIZATION, accountant)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"SUBMITTED\",\"submissionRef\":\"ΑΑΔΕ-42\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.content[?(@.type == 'STATUS_CHANGED')].message").value(hasItem(containsString("ΑΑΔΕ-42"))));
+        MockMultipartFile receipt = new MockMultipartFile("file", "apodeiksi.txt", "text/plain",
+                "Απόδειξη υποβολής".getBytes(StandardCharsets.UTF_8));
+        mvc.perform(multipart("/api/v1/clients/" + clientId + "/documents").file(receipt).header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(status().isCreated());
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.content[?(@.type == 'DOCUMENT_RECEIVED')]").isNotEmpty());
+        mvc.perform(get("/api/v1/portal/obligations?status=SUBMITTED").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.content[0].messageCount").value(2));
+    }
+
+    private String loginAs(String email, String password) throws Exception {
+        return json.readTree(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()).get("accessToken").asText();
     }
 
     /** 768-dim one-hot vector (matches the vector(768) column). */

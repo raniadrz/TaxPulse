@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { aiService } from '@/services/aiService'
 import { getErrorMessage } from '@/lib/errors'
+import { newId } from '@/lib/id'
 import type { ChatMessage, SourceRef, UUID } from '@/types/api'
 import { queryKeys } from './queryKeys'
 
@@ -30,7 +31,7 @@ export function useAiChat({ clientId, useDocuments }: Options = {}) {
       const text = content.trim()
       if (!text || pending) return
 
-      const userMessage: UiChatMessage = { id: crypto.randomUUID(), role: 'USER', content: text }
+      const userMessage: UiChatMessage = { id: newId(), role: 'USER', content: text }
       const history = [...messages.filter((m) => !m.error), userMessage]
       setMessages((prev) => [...prev, userMessage])
       setPending(true)
@@ -44,13 +45,13 @@ export function useAiChat({ clientId, useDocuments }: Options = {}) {
         )
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: 'ASSISTANT', content: response.reply, sources: response.sources },
+          { id: newId(), role: 'ASSISTANT', content: response.reply, sources: response.sources },
         ])
       } catch (error) {
         if (controller.signal.aborted) return
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: 'ASSISTANT', content: getErrorMessage(error), error: true },
+          { id: newId(), role: 'ASSISTANT', content: getErrorMessage(error), error: true },
         ])
       } finally {
         setPending(false)

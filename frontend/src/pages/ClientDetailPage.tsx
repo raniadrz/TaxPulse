@@ -1,10 +1,12 @@
 import { useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Building2, CalendarClock, FolderOpen, Pencil, Sparkles, User } from 'lucide-react'
 import { ClientFormModal } from '@/components/clients/ClientFormModal'
 import { ObligationTable } from '@/components/obligations/ObligationTable'
 import { ReminderEmailModal } from '@/components/obligations/ReminderEmailModal'
+import { ObligationMessagesModal } from '@/components/messages/ObligationMessagesModal'
 import { DocumentTable } from '@/components/documents/DocumentTable'
+import { PortalAccountsCard } from '@/components/portal/PortalAccountsCard'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -30,7 +32,16 @@ export default function ClientDetailPage() {
   const client = useClient(id)
   const obligations = useObligations({ clientId: id, size: 50, sort: 'dueDate,desc' })
   const documents = useDocuments(id)
-  const { onStatusChange, statusError, busyId, emailFor, setEmailFor } = useObligationActions()
+  const { onStatusChange, statusError, busyId, emailFor, setEmailFor, messagesFor, setMessagesFor } = useObligationActions()
+  // ?messages=<obligationId> (from a notification) opens that obligation's conversation.
+  const [params, setParams] = useSearchParams()
+  const linkedThread = params.get('messages')
+  const thread = messagesFor ?? (linkedThread ? obligations.data?.content.find((o) => o.id === linkedThread) ?? null : null)
+  const threadId = messagesFor?.id ?? linkedThread
+  const closeThread = () => {
+    setMessagesFor(null)
+    if (linkedThread) setParams({}, { replace: true })
+  }
 
   if (client.isLoading) return <Spinner />
   if (client.isError || !client.data) return <ErrorAlert>{getErrorMessage(client.error, 'Ο πελάτης δεν βρέθηκε.')}</ErrorAlert>
@@ -115,6 +126,8 @@ export default function ClientDetailPage() {
               </ul>
             </Card>
           )}
+
+          <PortalAccountsCard clientId={c.id} canEdit={canEdit} />
         </div>
 
         <div className="space-y-6 xl:col-span-2">
@@ -128,7 +141,7 @@ export default function ClientDetailPage() {
             )}
             {obligations.data && obligations.data.content.length > 0 && (
               <ObligationTable obligations={obligations.data.content} onStatusChange={onStatusChange}
-                onDraftEmail={setEmailFor} busyId={busyId} hideClient />
+                onDraftEmail={setEmailFor} onMessages={setMessagesFor} busyId={busyId} hideClient />
             )}
           </Card>
 
@@ -148,6 +161,9 @@ export default function ClientDetailPage() {
 
       {editing && <ClientFormModal clientId={c.id} onClose={() => setEditing(false)} />}
       <ReminderEmailModal obligation={emailFor} onClose={() => setEmailFor(null)} />
+      {threadId && (
+        <ObligationMessagesModal key={threadId} scope="staff" obligationId={threadId} title={thread?.title} onClose={closeThread} />
+      )}
     </>
   )
 }

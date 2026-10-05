@@ -7,13 +7,14 @@ import { ClientPicker } from '@/components/clients/ClientPicker'
 import { useSaveObligation } from '@/hooks/useObligations'
 import { getErrorMessage, getFieldErrors } from '@/lib/errors'
 import { obligationTypeLabel } from '@/lib/labels'
+import { todayIsoDate } from '@/lib/format'
 import type { ObligationRequest, ObligationType } from '@/types/api'
 
 const initial = (): ObligationRequest => ({
   clientId: '',
   obligationType: 'VAT',
   title: '',
-  dueDate: new Date().toISOString().slice(0, 10),
+  dueDate: todayIsoDate(),
 })
 
 /**

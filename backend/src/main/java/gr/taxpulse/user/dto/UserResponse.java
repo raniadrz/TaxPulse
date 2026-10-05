@@ -12,5 +12,6 @@ public record UserResponse(
         Role role,
         boolean active,
         Instant lastLoginAt,
-        Instant createdAt) {
+        Instant createdAt,
+        UUID clientId) {
 }

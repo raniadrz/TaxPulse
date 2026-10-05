@@ -32,8 +32,9 @@ public class UserService {
     private final UserMapper userMapper;
     private final UserAccessCache accessCache;
 
+    /** Staff accounts only; client portal accounts are managed per client (see PortalAccountService). */
     public List<UserResponse> findAll() {
-        return userRepository.findAll(Sort.by("fullName")).stream().map(userMapper::toResponse).toList();
+        return userRepository.findByRoleNot(Role.CLIENT, Sort.by("fullName")).stream().map(userMapper::toResponse).toList();
     }
 
     public UserResponse findById(UUID id) {
@@ -45,8 +46,18 @@ public class UserService {
         return userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User", id));
     }
 
+    /** Like {@link #getEntity} but for work assignments, which only staff members can take. */
+    public User getStaffEntity(UUID id) {
+        User user = getEntity(id);
+        if (!user.getRole().isStaff()) {
+            throw new BusinessRuleException("Ο χρήστης δεν είναι μέλος του γραφείου");
+        }
+        return user;
+    }
+
     @Transactional
     public UserResponse create(CreateUserRequest request) {
+        requireStaffRole(request.role());
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new ConflictException("A user with e-mail %s already exists".formatted(email));
@@ -63,6 +74,10 @@ public class UserService {
     @Transactional
     public UserResponse update(UUID id, UpdateUserRequest request) {
         User user = getEntity(id);
+        if (!user.getRole().isStaff()) {
+            throw new ResourceNotFoundException("User", id); // portal accounts are not managed here
+        }
+        requireStaffRole(request.role());
         // An administrator must never lock themselves out (and possibly the whole office) by accident.
         boolean self = CurrentUser.get().map(p -> p.id().equals(id)).orElse(false);
         if (self && (request.role() != Role.ADMIN || !request.active())) {
@@ -73,5 +88,11 @@ public class UserService {
         user.setActive(request.active());
         accessCache.evictAfterCommit(id); // deactivation / role change applies to the next request
         return userMapper.toResponse(user);
+    }
+
+    private static void requireStaffRole(Role role) {
+        if (!role.isStaff()) {
+            throw new BusinessRuleException("Οι λογαριασμοί πελατών δημιουργούνται από την καρτέλα του πελάτη");
+        }
     }
 }

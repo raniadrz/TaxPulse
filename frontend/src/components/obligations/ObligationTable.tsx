@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Mail } from 'lucide-react'
+import { FileInput, Mail, MessageSquare } from 'lucide-react'
 import { Select } from '@/components/ui/FormField'
 import { formatCurrency } from '@/lib/format'
 import { obligationStatusLabel } from '@/lib/labels'
@@ -19,12 +19,14 @@ interface ObligationTableProps {
   obligations: Obligation[]
   onStatusChange: (obligation: Obligation, status: ObligationStatus) => void
   onDraftEmail: (obligation: Obligation) => void
+  /** Opens the obligation's conversation with the client. */
+  onMessages?: (obligation: Obligation) => void
   busyId?: string
   /** Omit the client column (e.g. on a client's own page). */
   hideClient?: boolean
 }
 
-export function ObligationTable({ obligations, onStatusChange, onDraftEmail, busyId, hideClient }: ObligationTableProps) {
+export function ObligationTable({ obligations, onStatusChange, onDraftEmail, onMessages, busyId, hideClient }: ObligationTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -60,6 +62,13 @@ export function ObligationTable({ obligations, onStatusChange, onDraftEmail, bus
               <td className="px-3 py-3 text-right tabular-nums text-slate-700">{formatCurrency(o.amount)}</td>
               <td className="px-3 py-3">
                 <ObligationStatusBadge status={o.status} />
+                {o.status === 'PENDING_DOCS' && o.clientDocuments > 0 && (
+                  <div className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700"
+                    title="Ο πελάτης έστειλε έγγραφα από το portal. Ελέγξτε τα και προχωρήστε την υποχρέωση.">
+                    <FileInput className="size-3.5" aria-hidden />
+                    Ήρθαν δικαιολογητικά ({o.clientDocuments})
+                  </div>
+                )}
               </td>
               <td className="px-3 py-3">
                 <div className="flex items-center gap-1">
@@ -75,6 +84,22 @@ export function ObligationTable({ obligations, onStatusChange, onDraftEmail, bus
                       <option key={s} value={s}>{obligationStatusLabel[s]}</option>
                     ))}
                   </Select>
+                  {onMessages && (
+                    <button
+                      type="button"
+                      onClick={() => onMessages(o)}
+                      className="relative rounded-md p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
+                      title="Μηνύματα με τον πελάτη"
+                      aria-label={`Μηνύματα με τον πελάτη (${o.messageCount})`}
+                    >
+                      <MessageSquare className="size-4" />
+                      {o.messageCount > 0 && (
+                        <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
+                          {o.messageCount}
+                        </span>
+                      )}
+                    </button>
+                  )}
                   {o.status !== 'SUBMITTED' && (
                     <button
                       type="button"

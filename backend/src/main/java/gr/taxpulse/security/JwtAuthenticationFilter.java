@@ -50,12 +50,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * Re-validates the token's subject against the current account state: deactivated or deleted
-     * users are rejected (-> 401) and the role is taken from the database, not from the token.
+     * users are rejected (-> 401) and the role and client binding are taken from the database, not
+     * from the token.
      */
     private Optional<UserPrincipal> withCurrentAccess(UserPrincipal fromToken) {
         return accessCache.get(fromToken.id())
                 .filter(UserAccessCache.AccessStatus::active)
                 .map(status -> new UserPrincipal(fromToken.id(), fromToken.email(), fromToken.fullName(),
-                        status.role(), null, true));
+                        status.role(), null, true, status.clientId()));
     }
 }

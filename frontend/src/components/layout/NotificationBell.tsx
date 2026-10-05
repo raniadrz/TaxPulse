@@ -1,24 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertOctagon, Bell, CalendarClock, CheckCheck, FileCheck2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { AlertOctagon, Bell, CalendarClock, CheckCheck, CircleCheckBig, FileCheck2, FileInput, MessageSquare } from 'lucide-react'
 import { useMarkNotificationsRead, useNotifications, useUnreadNotificationCount } from '@/hooks/useNotifications'
+import { useAuth } from '@/hooks/useAuth'
 import { formatDateTime } from '@/lib/format'
+import { notificationLink } from '@/lib/notificationLink'
 import { cn } from '@/lib/cn'
-import type { NotificationType } from '@/types/api'
+import type { AppNotification, NotificationType } from '@/types/api'
 
 const icons: Record<NotificationType, typeof Bell> = {
   DEADLINE_UPCOMING: CalendarClock,
   DEADLINE_OVERDUE: AlertOctagon,
   DOCUMENT_PROCESSED: FileCheck2,
   SYSTEM: Bell,
+  MESSAGE: MessageSquare,
+  STATUS_CHANGED: CircleCheckBig,
+  DOCUMENT_RECEIVED: FileInput,
 }
 
-/** Navbar bell with unread badge and a dropdown of the latest notifications. */
+/** Navbar bell with unread badge and a dropdown of the latest notifications; each one opens what it is about. */
 export function NotificationBell() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const { data: unread = 0 } = useUnreadNotificationCount()
   const { data, isLoading } = useNotifications(open)
   const { markOne, markAll } = useMarkNotificationsRead()
+
+  const onSelect = (n: AppNotification) => {
+    if (!n.read) markOne.mutate(n.id)
+    const to = user && notificationLink(n, user.role)
+    if (to) {
+      setOpen(false)
+      navigate(to)
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -65,7 +82,7 @@ export function NotificationBell() {
                 <li key={n.id}>
                   <button
                     type="button"
-                    onClick={() => !n.read && markOne.mutate(n.id)}
+                    onClick={() => onSelect(n)}
                     className={cn('flex w-full gap-3 px-4 py-3 text-left hover:bg-slate-50', !n.read && 'bg-brand-50/50')}
                   >
                     <Icon className={cn('mt-0.5 size-4 shrink-0', n.type === 'DEADLINE_OVERDUE' ? 'text-red-500' : 'text-brand-600')} />

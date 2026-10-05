@@ -1,18 +1,17 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { FileText, Sparkles } from 'lucide-react'
-import { aiService } from '@/services/aiService'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/FormField'
 import { ErrorAlert } from '@/components/ui/Alert'
 import { getErrorMessage } from '@/lib/errors'
-import type { UUID } from '@/types/api'
+import type { ChatResponse } from '@/types/api'
 
-/** RAG question box scoped to the selected client's indexed documents. */
-export function AskDocumentsPanel({ clientId, indexedCount }: { clientId: UUID; indexedCount: number }) {
+/** RAG question box over one client's indexed documents; `onAsk` carries the scope. */
+export function AskDocumentsPanel({ onAsk, indexedCount }: { onAsk: (question: string) => Promise<ChatResponse>; indexedCount: number }) {
   const [question, setQuestion] = useState('')
-  const ask = useMutation({ mutationFn: (q: string) => aiService.askDocuments(q, clientId) })
+  const ask = useMutation({ mutationFn: onAsk })
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()

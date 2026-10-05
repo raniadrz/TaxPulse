@@ -28,6 +28,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *
  * <p>Coarse URL rules live here; fine-grained RBAC is declared with {@code @PreAuthorize} on
  * controllers so authorization sits next to the operation it protects.</p>
+ *
+ * <p>Client portal accounts are confined to {@code /api/v1/portal/**} plus the caller-scoped
+ * profile and inbox endpoints; every other API route is staff-only, so a new staff endpoint is
+ * never exposed to clients by accident.</p>
  */
 @Configuration
 @EnableWebSecurity
@@ -57,6 +61,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/portal/**").hasRole("CLIENT")
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/notifications/**").authenticated()
+                        .requestMatchers("/api/**").hasAnyRole("ADMIN", "ACCOUNTANT", "ASSISTANT")
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh
                         .authenticationEntryPoint(problemHandler)

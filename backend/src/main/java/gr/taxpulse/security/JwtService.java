@@ -72,7 +72,8 @@ public class JwtService {
                     claims.get("name", String.class),
                     Role.valueOf(claims.get("role", String.class)),
                     null,
-                    true));
+                    true,
+                    null)); // the client binding is loaded from the database, see JwtAuthenticationFilter
         } catch (JwtException | IllegalArgumentException ex) {
             log.debug("Rejected JWT: {}", ex.getMessage());
             return Optional.empty();

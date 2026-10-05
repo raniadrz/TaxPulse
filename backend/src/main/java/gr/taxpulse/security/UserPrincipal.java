@@ -13,12 +13,16 @@ import org.springframework.security.core.userdetails.UserDetails;
  * Authenticated principal. Immutable snapshot of the user so the security context never
  * holds a managed JPA entity (which would be detached outside the transaction).
  */
-public record UserPrincipal(UUID id, String email, String fullName, Role role, String passwordHash, boolean active)
-        implements UserDetails {
+public record UserPrincipal(UUID id, String email, String fullName, Role role, String passwordHash, boolean active,
+                            UUID clientId) implements UserDetails {
 
     public static UserPrincipal from(User user) {
         return new UserPrincipal(user.getId(), user.getEmail(), user.getFullName(), user.getRole(),
-                user.getPasswordHash(), user.isActive());
+                user.getPasswordHash(), user.isActive(), user.getClientId());
+    }
+
+    public UserPrincipal withActive(boolean value) {
+        return new UserPrincipal(id, email, fullName, role, passwordHash, value, clientId);
     }
 
     @Override

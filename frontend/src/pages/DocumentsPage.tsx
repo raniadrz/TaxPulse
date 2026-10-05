@@ -11,9 +11,10 @@ import { Pagination } from '@/components/ui/Pagination'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorAlert } from '@/components/ui/Alert'
-import { useDeleteDocument, useDocuments, useReindexDocument } from '@/hooks/useDocuments'
+import { useDeleteDocument, useDocuments, useReindexDocument, useUploadDocument } from '@/hooks/useDocuments'
 import { useAuth } from '@/hooks/useAuth'
 import { documentService } from '@/services/documentService'
+import { aiService } from '@/services/aiService'
 import { getErrorMessage } from '@/lib/errors'
 import type { DocumentInfo } from '@/types/api'
 
@@ -28,6 +29,7 @@ export default function DocumentsPage() {
   const documents = useDocuments(clientId || undefined, page)
   const reindex = useReindexDocument()
   const remove = useDeleteDocument()
+  const upload = useUploadDocument()
 
   const selectClient = (id: string) => {
     setPage(0)
@@ -66,7 +68,7 @@ export default function DocumentsPage() {
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="space-y-6 xl:col-span-2">
             <Card className="p-5">
-              <DocumentUploadZone clientId={clientId} />
+              <DocumentUploadZone onUpload={(file, onProgress) => upload.mutateAsync({ clientId, file, onProgress })} />
             </Card>
             <Card>
               <CardHeader title="Αρχεία πελάτη" description={documents.data ? `${documents.data.totalElements} έγγραφα` : undefined} />
@@ -89,7 +91,7 @@ export default function DocumentsPage() {
               )}
             </Card>
           </div>
-          <AskDocumentsPanel clientId={clientId} indexedCount={indexedCount} />
+          <AskDocumentsPanel onAsk={(q) => aiService.askDocuments(q, clientId)} indexedCount={indexedCount} />
         </div>
       )}
     </>

@@ -3,10 +3,16 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Navbar } from './Navbar'
 import { AiAssistant } from '@/components/ai/AiAssistant'
+import { useAuth } from '@/hooks/useAuth'
 
-/** Authenticated application shell: sidebar + top bar + routed page content. */
+/**
+ * Authenticated application shell: sidebar + top bar + routed page content. Shared by staff and
+ * client portal accounts; the menu is filtered by role and the office-wide copilot is staff-only.
+ */
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { hasRole } = useAuth()
+  const isClient = hasRole('CLIENT')
 
   return (
     <div className="flex h-full">
@@ -17,7 +23,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
-      <AiAssistant />
+      {!isClient && <AiAssistant />}
     </div>
   )
 }

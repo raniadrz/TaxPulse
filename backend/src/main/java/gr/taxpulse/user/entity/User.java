@@ -7,11 +7,12 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** An accountant or staff member of the office. */
+/** An accountant or staff member of the office, or a client portal account. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -37,4 +38,8 @@ public class User extends BaseEntity {
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
+
+    /** The client a {@link Role#CLIENT} account belongs to; null for staff. */
+    @Column(name = "client_id")
+    private UUID clientId;
 }
