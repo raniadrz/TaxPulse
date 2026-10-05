@@ -46,6 +46,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     List<User> findByRoleNot(Role role, Sort sort);
 
+    List<User> findByRole(Role role, Sort sort);
+
     List<User> findByClientId(UUID clientId, Sort sort);
 
     List<User> findByClientIdAndActiveTrue(UUID clientId);

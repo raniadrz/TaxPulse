@@ -3,6 +3,7 @@ import { Mail } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { ChangePasswordCard } from '@/components/portal/ChangePasswordCard'
 import { Spinner } from '@/components/ui/Spinner'
 import { ErrorAlert } from '@/components/ui/Alert'
 import { usePortalProfile } from '@/hooks/usePortal'
@@ -42,6 +43,7 @@ export default function PortalProfilePage() {
               <Row label="Email σύνδεσης">{user?.email}</Row>
             </dl>
           </Card>
+          <ChangePasswordCard />
           <Card>
             <CardHeader title="Ο λογιστής σας" />
             {p.accountant ? (

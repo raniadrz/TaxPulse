@@ -1,6 +1,7 @@
 package gr.taxpulse.portal.controller;
 
 import gr.taxpulse.portal.dto.CreatePortalAccountRequest;
+import gr.taxpulse.portal.dto.PortalAccountSummary;
 import gr.taxpulse.portal.dto.UpdatePortalAccountRequest;
 import gr.taxpulse.portal.service.PortalAccountService;
 import gr.taxpulse.user.dto.UserResponse;
@@ -16,23 +17,30 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Portal logins of a client. Read: all staff. Create / update: ADMIN, ACCOUNTANT. */
+/** Portal logins of clients. Read: all staff (office-wide list: ADMIN). Create / update: ADMIN, ACCOUNTANT. */
 @RestController
-@RequestMapping("/api/v1/clients/{clientId}/portal-accounts")
 @RequiredArgsConstructor
 public class PortalAccountController {
 
+    private static final String BASE = "/api/v1/clients/{clientId}/portal-accounts";
+
     private final PortalAccountService service;
 
-    @GetMapping
+    /** All portal logins of the office (Users page). */
+    @GetMapping("/api/v1/portal-accounts")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<PortalAccountSummary> listAll() {
+        return service.listAll();
+    }
+
+    @GetMapping(BASE)
     public List<UserResponse> list(@PathVariable UUID clientId) {
         return service.list(clientId);
     }
 
-    @PostMapping
+    @PostMapping(BASE)
     @PreAuthorize("hasAnyRole('ADMIN','ACCOUNTANT')")
     public ResponseEntity<UserResponse> create(@PathVariable UUID clientId,
                                                @Valid @RequestBody CreatePortalAccountRequest request) {
@@ -41,7 +49,7 @@ public class PortalAccountController {
                 .body(created);
     }
 
-    @PutMapping("/{userId}")
+    @PutMapping(BASE + "/{userId}")
     @PreAuthorize("hasAnyRole('ADMIN','ACCOUNTANT')")
     public UserResponse update(@PathVariable UUID clientId, @PathVariable UUID userId,
                                @Valid @RequestBody UpdatePortalAccountRequest request) {

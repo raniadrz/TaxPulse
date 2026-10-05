@@ -10,5 +10,7 @@ public enum NotificationType {
     /** The office moved one of the client's obligations forward (e.g. submitted it). */
     STATUS_CHANGED,
     /** A document arrived from the other side (client upload, or one shared by the office). */
-    DOCUMENT_RECEIVED
+    DOCUMENT_RECEIVED,
+    /** The client's stored service logins (TAXISnet etc.) were added, changed or removed by the other side. */
+    CREDENTIALS_UPDATED
 }

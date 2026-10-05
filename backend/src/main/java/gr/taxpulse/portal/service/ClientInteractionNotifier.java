@@ -107,6 +107,28 @@ public class ClientInteractionNotifier {
         }
     }
 
+    /** Tells the other side that the client's stored logins changed (never includes the secret itself). */
+    public void credentialsChanged(UUID clientId, UserPrincipal actor, String kindLabel, String verb) {
+        Client client = clientService.getEntity(clientId);
+        String title = "Κωδικοί %s: %s".formatted(kindLabel, verb);
+        String key = "CRED:%s:%s".formatted(clientId, UUID.randomUUID());
+        if (actor.role() == Role.CLIENT) {
+            for (User recipient : officeRecipients(null, client)) {
+                send(recipient, NotificationType.CREDENTIALS_UPDATED, title + " από " + client.getName(),
+                        "Ο πελάτης %s (ΑΦΜ %s): οι κωδικοί %s %s από %s."
+                                .formatted(client.getName(), client.getAfm(), kindLabel, verb, actor.fullName()),
+                        null, clientId, key + ":" + recipient.getId());
+            }
+        } else {
+            for (User recipient : clientRecipients(clientId)) {
+                send(recipient, NotificationType.CREDENTIALS_UPDATED, title + " από το γραφείο",
+                        "Οι κωδικοί %s %s από %s. Αν δεν το περιμένατε, επικοινωνήστε με το γραφείο."
+                                .formatted(kindLabel, verb, actor.fullName()),
+                        null, clientId, key + ":" + recipient.getId());
+            }
+        }
+    }
+
     /** Obligation assignee, else the client's accountant, else every active administrator. */
     private List<User> officeRecipients(TaxObligation obligation, Client client) {
         User target = obligation != null && obligation.getAssignedTo() != null

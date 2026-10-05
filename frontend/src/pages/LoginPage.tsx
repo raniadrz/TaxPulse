@@ -41,7 +41,7 @@ export default function LoginPage() {
             <Activity className="size-7" />
           </span>
           <h1 className="text-xl font-semibold">TaxPulse AI</h1>
-          <p className="text-sm text-slate-500">Σύνδεση στο λογιστικό γραφείο</p>
+          <p className="text-sm text-slate-500">Λογιστικό γραφείο & portal πελατών</p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
@@ -62,6 +62,9 @@ export default function LoginPage() {
             Σύνδεση
           </Button>
         </form>
+        <p className="mt-5 border-t border-slate-100 pt-4 text-center text-xs text-slate-500">
+          Πελάτης του γραφείου; Συνδεθείτε με το email και τον κωδικό που σας έστειλε ο λογιστής σας.
+        </p>
       </div>
     </div>
   )

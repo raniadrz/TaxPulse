@@ -23,7 +23,10 @@ export const queryKeys = {
   },
   users: ['users'] as const,
   portalAccounts: (clientId: UUID) => ['portal-accounts', clientId] as const,
+  allPortalAccounts: ['portal-accounts', 'all'] as const,
   messages: (obligationId: UUID) => ['messages', obligationId] as const,
+  credentials: (scopeKey: string) => ['credentials', scopeKey] as const,
+  credentialLog: (scopeKey: string) => ['credentials', scopeKey, 'log'] as const,
   portal: {
     all: ['portal'] as const,
     profile: ['portal', 'profile'] as const,

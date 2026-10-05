@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -48,7 +49,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
         "taxpulse.bootstrap.admin-email=admin@test.gr",
         "taxpulse.bootstrap.admin-password=Admin!Passw0rd",
         "taxpulse.reminders.enabled=false",
-        "taxpulse.storage.root-path=${java.io.tmpdir}/taxpulse-it"
+        "taxpulse.storage.root-path=${java.io.tmpdir}/taxpulse-it",
+        "taxpulse.security.credentials-key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestContainer.class)
@@ -372,6 +374,24 @@ class TaxPulseIntegrationTest {
                 .andReturn().getResponse().getContentAsString()).get("accessToken").asText();
         String bearer = "Bearer " + clientToken;
 
+        // The office sees every portal login with its client; only an admin gets the full list.
+        mvc.perform(auth(get("/api/v1/portal-accounts")))
+                .andExpect(jsonPath("$[?(@.email == '%s')].clientName".formatted(email)).value("ΖΗΤΑ ΑΕ"));
+        mvc.perform(get("/api/v1/portal-accounts").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isForbidden());
+
+        // The client replaces the password it was given; the current one must be right.
+        mvc.perform(put("/api/v1/auth/password").header(HttpHeaders.AUTHORIZATION, bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"wrong-password\",\"newPassword\":\"Mine!Passw0rd\"}"))
+                .andExpect(status().isUnprocessableEntity());
+        mvc.perform(put("/api/v1/auth/password").header(HttpHeaders.AUTHORIZATION, bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Client!Passw0rd\",\"newPassword\":\"Mine!Passw0rd\"}"))
+                .andExpect(status().isNoContent());
+        loginAs(email, "Mine!Passw0rd");
+        mvc.perform(put("/api/v1/auth/password").header(HttpHeaders.AUTHORIZATION, bearer).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"Mine!Passw0rd\",\"newPassword\":\"Client!Passw0rd\"}"))
+                .andExpect(status().isNoContent());
+
         // Staff API is closed to clients; the portal is closed to staff.
         for (String path : List.of("/api/v1/clients", "/api/v1/clients/" + otherId, "/api/v1/obligations",
                 "/api/v1/users", "/api/v1/dashboard/stats", "/api/v1/clients/" + otherId + "/documents",
@@ -514,6 +534,92 @@ class TaxPulseIntegrationTest {
                 .andExpect(jsonPath("$.content[?(@.type == 'DOCUMENT_RECEIVED')]").isNotEmpty());
         mvc.perform(get("/api/v1/portal/obligations?status=SUBMITTED").header(HttpHeaders.AUTHORIZATION, client))
                 .andExpect(jsonPath("$.content[0].messageCount").value(2));
+    }
+
+    @Test
+    void clientCredentialsAreEncryptedAuditedAndScoped() throws Exception {
+        String clientId = createClient("555000019", "ΚΑΠΠΑ ΑΕ").get("id").asText();
+        String otherClientId = createClient("555000020", "ΛΑΜΔΑ ΑΕ").get("id").asText();
+        String accEmail = "acc-" + UUID.randomUUID() + "@test.gr";
+        String accId = json.readTree(mvc.perform(auth(post("/api/v1/users")).content("""
+                        {"email":"%s","fullName":"Λογιστής Κάππα","role":"ACCOUNTANT","password":"Accnt!Passw0rd"}
+                        """.formatted(accEmail))).andReturn().getResponse().getContentAsString()).get("id").asText();
+        String asstEmail = "asst-" + UUID.randomUUID() + "@test.gr";
+        mvc.perform(auth(post("/api/v1/users")).content("""
+                {"email":"%s","fullName":"Βοηθός","role":"ASSISTANT","password":"Asst!Passw0rd1"}
+                """.formatted(asstEmail))).andExpect(status().isCreated());
+        // The client's accountant is the one notified of portal changes.
+        String clientJson = mvc.perform(auth(get("/api/v1/clients/" + clientId))).andReturn().getResponse().getContentAsString();
+        ObjectNode withAccountant = (ObjectNode) json.readTree(clientJson);
+        withAccountant.put("assignedAccountantId", accId);
+        mvc.perform(auth(put("/api/v1/clients/" + clientId)).content(withAccountant.toString())).andExpect(status().isOk());
+        String ownEmail = "kappa-" + UUID.randomUUID() + "@test.gr";
+        String otherEmail = "lamda-" + UUID.randomUUID() + "@test.gr";
+        for (String[] acct : new String[][] {{clientId, ownEmail}, {otherClientId, otherEmail}}) {
+            mvc.perform(auth(post("/api/v1/clients/" + acct[0] + "/portal-accounts")).content("""
+                            {"email":"%s","fullName":"Πελάτης","password":"Client!Passw0rd"}
+                            """.formatted(acct[1])))
+                    .andExpect(status().isCreated());
+        }
+        String client = "Bearer " + loginAs(ownEmail, "Client!Passw0rd");
+        String otherClient = "Bearer " + loginAs(otherEmail, "Client!Passw0rd");
+        String accountant = "Bearer " + loginAs(accEmail, "Accnt!Passw0rd");
+        String assistant = "Bearer " + loginAs(asstEmail, "Asst!Passw0rd1");
+
+        // The client stores its TAXISnet login from the portal; it is encrypted at rest.
+        String created = mvc.perform(post("/api/v1/portal/credentials").header(HttpHeaders.AUTHORIZATION, client)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"kind\":\"TAXISNET\",\"username\":\"kappa_ae\",\"password\":\"Taxis!Secret42\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.updatedByClient").value(true))
+                .andReturn().getResponse().getContentAsString();
+        String credId = json.readTree(created).get("id").asText();
+        String stored = jdbc.queryForObject("select password_encrypted from client_credentials where id = ?::uuid", String.class, credId);
+        assertThat(stored).doesNotContain("Taxis!Secret42");
+        mvc.perform(post("/api/v1/portal/credentials").header(HttpHeaders.AUTHORIZATION, client)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"kind\":\"TAXISNET\",\"username\":\"again\",\"password\":\"x1234567890\"}"))
+                .andExpect(status().isConflict());
+
+        // The accountant is notified, sees the login masked, and can reveal it (audited).
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$.content[?(@.type == 'CREDENTIALS_UPDATED')].clientId").value(clientId));
+        mvc.perform(get("/api/v1/clients/" + clientId + "/credentials").header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$[0].username").value("kappa_ae"))
+                .andExpect(jsonPath("$[0].password").doesNotExist());
+        mvc.perform(post("/api/v1/clients/" + clientId + "/credentials/" + credId + "/reveal").header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$.password").value("Taxis!Secret42"));
+
+        // Both sides can edit: the accountant updates it, the client is told and sees who viewed it.
+        mvc.perform(put("/api/v1/clients/" + clientId + "/credentials/" + credId).header(HttpHeaders.AUTHORIZATION, accountant)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"kind\":\"TAXISNET\",\"username\":\"kappa_ae2\",\"password\":\"\"}"))
+                .andExpect(jsonPath("$.username").value("kappa_ae2"))
+                .andExpect(jsonPath("$.updatedByClient").value(false));
+        mvc.perform(post("/api/v1/portal/credentials/" + credId + "/reveal").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.password").value("Taxis!Secret42")); // blank password on update kept the old one
+        mvc.perform(get("/api/v1/notifications").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$.content[?(@.type == 'CREDENTIALS_UPDATED')]").isNotEmpty());
+        mvc.perform(get("/api/v1/portal/credentials/log").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(jsonPath("$[?(@.action == 'VIEW' && @.userName == 'Λογιστής Κάππα')]").isNotEmpty())
+                .andExpect(jsonPath("$[?(@.action == 'UPDATE' && @.byClient == false)]").isNotEmpty());
+
+        // Assistants never see credentials; another client cannot reach them; staff cannot use the portal route.
+        mvc.perform(get("/api/v1/clients/" + clientId + "/credentials").header(HttpHeaders.AUTHORIZATION, assistant))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/portal/credentials/" + credId + "/reveal").header(HttpHeaders.AUTHORIZATION, otherClient))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/portal/credentials").header(HttpHeaders.AUTHORIZATION, otherClient))
+                .andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/v1/clients/" + clientId + "/credentials").header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(status().isForbidden());
+
+        // Deleting is audited too.
+        mvc.perform(delete("/api/v1/portal/credentials/" + credId).header(HttpHeaders.AUTHORIZATION, client))
+                .andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/clients/" + clientId + "/credentials/log").header(HttpHeaders.AUTHORIZATION, accountant))
+                .andExpect(jsonPath("$[0].action").value("DELETE"));
     }
 
     private String loginAs(String email, String password) throws Exception {

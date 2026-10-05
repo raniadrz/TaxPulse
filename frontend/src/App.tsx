@@ -20,6 +20,7 @@ const PortalObligationsPage = lazy(() => import('@/pages/portal/PortalObligation
 const PortalDocumentsPage = lazy(() => import('@/pages/portal/PortalDocumentsPage'))
 const PortalAssistantPage = lazy(() => import('@/pages/portal/PortalAssistantPage'))
 const PortalProfilePage = lazy(() => import('@/pages/portal/PortalProfilePage'))
+const PortalCredentialsPage = lazy(() => import('@/pages/portal/PortalCredentialsPage'))
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
                 <Route path="obligations" element={<PortalObligationsPage />} />
                 <Route path="documents" element={<PortalDocumentsPage />} />
                 <Route path="assistant" element={<PortalAssistantPage />} />
+                <Route path="credentials" element={<PortalCredentialsPage />} />
                 <Route path="profile" element={<PortalProfilePage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />

@@ -1,9 +1,12 @@
 package gr.taxpulse.portal.service;
 
+import gr.taxpulse.client.entity.Client;
+import gr.taxpulse.client.repository.ClientRepository;
 import gr.taxpulse.client.service.ClientService;
 import gr.taxpulse.common.exception.ConflictException;
 import gr.taxpulse.common.exception.ResourceNotFoundException;
 import gr.taxpulse.portal.dto.CreatePortalAccountRequest;
+import gr.taxpulse.portal.dto.PortalAccountSummary;
 import gr.taxpulse.portal.dto.UpdatePortalAccountRequest;
 import gr.taxpulse.security.UserAccessCache;
 import gr.taxpulse.user.dto.UserResponse;
@@ -13,7 +16,10 @@ import gr.taxpulse.user.mapper.UserMapper;
 import gr.taxpulse.user.repository.UserRepository;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +37,20 @@ public class PortalAccountService {
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final ClientService clientService;
+    private final ClientRepository clientRepository;
     private final UserAccessCache accessCache;
+
+    /** Every portal login of the office, with the client it belongs to. */
+    public List<PortalAccountSummary> listAll() {
+        List<User> accounts = userRepository.findByRole(Role.CLIENT, Sort.by("fullName"));
+        Map<UUID, Client> clients = clientRepository.findAllById(accounts.stream().map(User::getClientId).distinct().toList())
+                .stream().collect(Collectors.toMap(Client::getId, Function.identity()));
+        return accounts.stream().map(u -> {
+            Client c = clients.get(u.getClientId());
+            return new PortalAccountSummary(u.getId(), u.getEmail(), u.getFullName(), u.isActive(), u.getLastLoginAt(),
+                    u.getCreatedAt(), u.getClientId(), c == null ? null : c.getName(), c != null && c.isActive());
+        }).toList();
+    }
 
     public List<UserResponse> list(UUID clientId) {
         clientService.getEntity(clientId); // 404 for unknown client

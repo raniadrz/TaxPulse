@@ -23,11 +23,15 @@ public record TaxPulseProperties(
         @Valid @NotNull Storage storage,
         @Valid @NotNull Bootstrap bootstrap) {
 
-    /** JWT settings. The secret must be at least 256 bits for HS256. */
+    /**
+     * JWT settings (the secret must be at least 256 bits for HS256) and the key that encrypts stored
+     * client credentials (TAXISnet etc.): base64 of 32 random bytes. Without it that feature is off.
+     */
     public record Security(
             @NotBlank @Size(min = 32, message = "JWT secret must be at least 32 characters") String jwtSecret,
             @NotNull Duration jwtExpiration,
-            @NotBlank String jwtIssuer) {
+            @NotBlank String jwtIssuer,
+            String credentialsKey) {
     }
 
     public record Cors(@NotEmpty List<String> allowedOrigins) {

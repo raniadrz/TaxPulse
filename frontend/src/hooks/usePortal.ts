@@ -53,6 +53,11 @@ export function usePortalAccounts(clientId: UUID, enabled = true) {
   })
 }
 
+/** Every portal login of the office (Users page, ADMIN). */
+export function useAllPortalAccounts(enabled: boolean) {
+  return useQuery({ queryKey: queryKeys.allPortalAccounts, queryFn: portalAccountService.listAll, enabled })
+}
+
 export function useSavePortalAccount(clientId: UUID) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -60,6 +65,6 @@ export function useSavePortalAccount(clientId: UUID) {
       input.userId
         ? portalAccountService.update(clientId, input.userId, input.update!)
         : portalAccountService.create(clientId, input.create!),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.portalAccounts(clientId) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['portal-accounts'] }),
   })
 }

@@ -1,4 +1,4 @@
-import type { BookCategory, ClientType, ObligationStatus, ObligationType, Role } from '@/types/api'
+import type { BookCategory, ClientType, CredentialKind, ObligationStatus, ObligationType, Role } from '@/types/api'
 
 /** Greek UI labels for backend enums. */
 export const obligationStatusLabel: Record<ObligationStatus, string> = {
@@ -38,4 +38,10 @@ export const roleLabel: Record<Role, string> = {
   ACCOUNTANT: 'Λογιστής',
   ASSISTANT: 'Βοηθός',
   CLIENT: 'Πελάτης',
+}
+
+export const credentialKindLabel: Record<CredentialKind, string> = {
+  TAXISNET: 'TAXISnet (ΑΑΔΕ)',
+  EFKA: 'e-ΕΦΚΑ',
+  OTHER: 'Άλλο',
 }

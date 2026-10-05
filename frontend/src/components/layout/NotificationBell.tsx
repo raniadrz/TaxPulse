@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertOctagon, Bell, CalendarClock, CheckCheck, CircleCheckBig, FileCheck2, FileInput, MessageSquare } from 'lucide-react'
+import { AlertOctagon, Bell, CalendarClock, CheckCheck, CircleCheckBig, FileCheck2, FileInput, KeyRound, MessageSquare } from 'lucide-react'
 import { useMarkNotificationsRead, useNotifications, useUnreadNotificationCount } from '@/hooks/useNotifications'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDateTime } from '@/lib/format'
@@ -16,6 +16,7 @@ const icons: Record<NotificationType, typeof Bell> = {
   MESSAGE: MessageSquare,
   STATUS_CHANGED: CircleCheckBig,
   DOCUMENT_RECEIVED: FileInput,
+  CREDENTIALS_UPDATED: KeyRound,
 }
 
 /** Navbar bell with unread badge and a dropdown of the latest notifications; each one opens what it is about. */

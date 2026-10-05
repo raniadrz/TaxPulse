@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/FormField'
 import { ErrorAlert } from '@/components/ui/Alert'
 import { aiService } from '@/services/aiService'
 import { getErrorMessage } from '@/lib/errors'
+import { copyText } from '@/lib/clipboard'
 import type { EmailTone, Obligation } from '@/types/api'
 
 /**
@@ -38,9 +39,13 @@ function ReminderEmailDraft({ obligation }: { obligation: Obligation }) {
   })
 
   const copy = async () => {
-    await navigator.clipboard.writeText(`${subject}\n\n${body}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    try {
+      await copyText(`${subject}\n\n${body}`)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (err) {
+      window.alert(getErrorMessage(err))
+    }
   }
 
   const mailto = `mailto:${draft.data?.recipientEmail ?? ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`

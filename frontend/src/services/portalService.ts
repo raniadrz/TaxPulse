@@ -5,6 +5,7 @@ import type {
   DocumentInfo,
   ObligationStatus,
   PageResponse,
+  PortalAccountSummary,
   PortalObligation,
   PortalProfile,
   User,
@@ -67,6 +68,11 @@ export interface UpdatePortalAccountRequest {
 
 /** Staff-side management of a client's portal logins. */
 export const portalAccountService = {
+  async listAll(): Promise<PortalAccountSummary[]> {
+    const { data } = await apiClient.get<PortalAccountSummary[]>('/portal-accounts')
+    return data
+  },
+
   async list(clientId: UUID): Promise<User[]> {
     const { data } = await apiClient.get<User[]>(`/clients/${clientId}/portal-accounts`)
     return data

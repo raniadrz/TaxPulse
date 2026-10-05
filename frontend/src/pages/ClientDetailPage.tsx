@@ -7,6 +7,7 @@ import { ReminderEmailModal } from '@/components/obligations/ReminderEmailModal'
 import { ObligationMessagesModal } from '@/components/messages/ObligationMessagesModal'
 import { DocumentTable } from '@/components/documents/DocumentTable'
 import { PortalAccountsCard } from '@/components/portal/PortalAccountsCard'
+import { CredentialsPanel } from '@/components/credentials/CredentialsPanel'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardHeader } from '@/components/ui/Card'
@@ -127,7 +128,9 @@ export default function ClientDetailPage() {
             </Card>
           )}
 
-          <PortalAccountsCard clientId={c.id} canEdit={canEdit} />
+          {canEdit && <CredentialsPanel scope={{ kind: 'staff', clientId: c.id }} />}
+
+          <PortalAccountsCard clientId={c.id} clientName={c.name} canEdit={canEdit} />
         </div>
 
         <div className="space-y-6 xl:col-span-2">

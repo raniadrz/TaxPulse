@@ -17,7 +17,8 @@ B2B SaaS πλατφόρμα για ελληνικά λογιστικά γραφ�
 ## 🚀 Γρήγορη εκκίνηση (Docker)
 
 ```bash
-cp .env.example .env            # ορίστε POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 48), admin credentials
+cp .env.example .env            # ορίστε POSTGRES_PASSWORD, JWT_SECRET (openssl rand -base64 48),
+                                # CREDENTIALS_ENCRYPTION_KEY (openssl rand -base64 32), admin credentials
 docker compose up -d --build    # postgres + ollama (+ αυτόματο pull μοντέλων) + backend + frontend
 ```
 
@@ -86,6 +87,7 @@ backend/src/main/java/gr/taxpulse
     ├── rag/         # TextChunker, PgVectorStore, DocumentIngestionService, RagService
     ├── service/     # use cases: chat, data extraction, reminder emails
     └── controller/
+├── credential/      # κωδικοί TAXISnet / e-ΕΦΚΑ: AES-256-GCM, προβολή μόνο με καταγραφή
 ├── message/         # συζήτηση λογιστή και πελάτη ανά υποχρέωση
 └── portal/          # portal πελατών: λογαριασμοί CLIENT, /api/v1/portal, ειδοποιήσεις ανάμεσα σε γραφείο και πελάτη
 ```
@@ -139,6 +141,8 @@ frontend/src
   λογαριασμός πελάτη δένεται με έναν πελάτη και κανένας λογαριασμός προσωπικού με κανέναν.
 - `V4__obligation_messages.sql`: `obligation_messages` (συζήτηση λογιστή και πελάτη ανά υποχρέωση) και οι τύποι ειδοποιήσεων
   `MESSAGE`, `STATUS_CHANGED`, `DOCUMENT_RECEIVED`.
+- `V5__client_credentials.sql`: κωδικοί TAXISnet και e-ΕΦΚΑ των πελατών (`client_credentials`, κρυπτογραφημένοι) και
+  `credential_access_log` (ποιος τους είδε ή τους άλλαξε και πότε).
 
 Το Hibernate τρέχει με `ddl-auto: validate`. Το σχήμα ανήκει αποκλειστικά στο Flyway.
 
@@ -149,6 +153,7 @@ frontend/src
 | Method | Endpoint | Ρόλοι |
 |---|---|---|
 | POST | `/auth/login` · GET `/auth/me` | δημόσιο / όλοι |
+| PUT | `/auth/password` (αλλαγή δικού κωδικού) | όλοι, και CLIENT |
 | GET/POST/PUT | `/users` | ανάγνωση: όλοι · εγγραφή: ADMIN |
 | GET | `/clients?q=&type=&bookCategory=&active=&page=&size=&sort=` | όλοι |
 | GET | `/clients/{id}` · `/clients/by-afm/{afm}` | όλοι |
@@ -163,10 +168,13 @@ frontend/src
 | POST | `/ai/chat` · `/ai/extract` · `/ai/reminder-email` · `/ai/documents/ask` | όλοι |
 | GET | `/ai/health` | όλοι |
 | GET · POST/PUT | `/clients/{id}/portal-accounts[/{userId}]` | όλοι · ADMIN, ACCOUNTANT |
+| GET | `/portal-accounts` (όλοι οι λογαριασμοί πελατών) | ADMIN |
 | GET | `/portal/profile` · `/portal/obligations?status=` · `/portal/documents` | CLIENT |
 | POST/GET | `/portal/documents` · `/portal/documents/{id}/download` | CLIENT |
 | POST | `/portal/ai/ask` | CLIENT |
 | GET/POST | `/obligations/{id}/messages` · `/portal/obligations/{id}/messages` | όλοι · CLIENT (μόνο δικές του) |
+| GET/POST/PUT/DELETE | `/clients/{id}/credentials[/{credId}]`, POST `…/{credId}/reveal`, GET `…/log` | ADMIN, ACCOUNTANT |
+| GET/POST/PUT/DELETE | `/portal/credentials[/{credId}]`, POST `…/{credId}/reveal`, GET `…/log` | CLIENT (μόνο δικοί του) |
 
 Στον παραπάνω πίνακα το «όλοι» σημαίνει όλο το προσωπικό. Ο ρόλος `CLIENT` έχει πρόσβαση μόνο στο `/portal/**`,
 στο `/auth/me` και στις δικές του ειδοποιήσεις.
@@ -237,6 +245,10 @@ Use cases:
   είναι μόνο για το προσωπικό, οπότε ένα νέο endpoint δεν εκτίθεται κατά λάθος σε πελάτες. Ο πελάτης προκύπτει από
   τη βάση σε κάθε αίτημα και δεν διαβάζεται ποτέ από το αίτημα. Οι απαντήσεις του portal δεν περιέχουν εσωτερικές
   σημειώσεις ή αναθέσεις
+- Κωδικοί TAXISnet / e-ΕΦΚΑ: κρυπτογράφηση AES-256-GCM με κλειδί `CREDENTIALS_ENCRYPTION_KEY`, που δεν αποθηκεύεται
+  στη βάση. Οι κωδικοί δεν επιστρέφονται ποτέ σε λίστες. Κάθε εμφάνιση (`/reveal`) και κάθε αλλαγή καταγράφεται και
+  φαίνεται στον πελάτη. Πρόσβαση έχουν μόνο ο πελάτης, οι ADMIN και οι ACCOUNTANT (όχι οι ASSISTANT).
+  **Κρατήστε αντίγραφο του κλειδιού**: χωρίς αυτό οι αποθηκευμένοι κωδικοί δεν ανακτώνται.
 - Uploads: whitelist τύπων, έλεγχος magic bytes για PDF, SHA-256 de-duplication, προστασία από path traversal,
   atomic εγγραφή και καθαρισμός αρχείων σε rollback
 - nginx: CSP, `X-Frame-Options: DENY`, `nosniff`, `no-referrer`

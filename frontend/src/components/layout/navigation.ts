@@ -3,6 +3,7 @@ import {
   CalendarClock,
   FileText,
   FolderOpen,
+  KeyRound,
   LayoutDashboard,
   ListTodo,
   Sparkles,
@@ -36,6 +37,7 @@ export const navItems: NavItem[] = [
   { to: '/portal', label: 'Επισκόπηση', icon: LayoutDashboard, end: true, roles: CLIENT },
   { to: '/portal/obligations', label: 'Οι υποχρεώσεις μου', icon: ListTodo, roles: CLIENT },
   { to: '/portal/documents', label: 'Τα έγγραφά μου', icon: FolderOpen, roles: CLIENT },
+  { to: '/portal/credentials', label: 'Κωδικοί πρόσβασης', icon: KeyRound, roles: CLIENT },
   { to: '/portal/assistant', label: 'Ρωτήστε το AI', icon: Sparkles, roles: CLIENT },
   { to: '/portal/profile', label: 'Τα στοιχεία μου', icon: Building2, roles: CLIENT },
 ]

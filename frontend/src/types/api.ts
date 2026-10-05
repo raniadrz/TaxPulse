@@ -231,6 +231,7 @@ export type NotificationType =
   | 'MESSAGE'
   | 'STATUS_CHANGED'
   | 'DOCUMENT_RECEIVED'
+  | 'CREDENTIALS_UPDATED'
 
 export interface AppNotification {
   id: UUID
@@ -327,6 +328,20 @@ export interface OllamaHealth {
 }
 
 // ---- Client portal ----
+/** Office-wide list row of a client portal login. */
+export interface PortalAccountSummary {
+  id: UUID
+  email: string
+  fullName: string
+  active: boolean
+  lastLoginAt?: IsoDateTime
+  createdAt: IsoDateTime
+  clientId: UUID
+  clientName?: string
+  /** A portal login works only while its client is active. */
+  clientActive: boolean
+}
+
 export interface PortalProfile {
   id: UUID
   clientType: ClientType
@@ -369,5 +384,36 @@ export interface ObligationMessage {
   /** Written by the current viewer. */
   mine: boolean
   body: string
+  createdAt: IsoDateTime
+}
+
+// ---- Client credentials (TAXISnet, e-ΕΦΚΑ) ----
+export type CredentialKind = 'TAXISNET' | 'EFKA' | 'OTHER'
+
+/** A stored login without its password (revealed only through an audited call). */
+export interface ClientCredential {
+  id: UUID
+  kind: CredentialKind
+  kindLabel: string
+  label?: string
+  username: string
+  updatedByName?: string
+  updatedByClient: boolean
+  updatedAt: IsoDateTime
+}
+
+export interface CredentialRequest {
+  kind: CredentialKind
+  label?: string
+  username: string
+  /** Required when adding; blank on update keeps the stored one. */
+  password?: string
+}
+
+export interface CredentialLogEntry {
+  kindLabel: string
+  userName: string
+  byClient: boolean
+  action: 'VIEW' | 'CREATE' | 'UPDATE' | 'DELETE'
   createdAt: IsoDateTime
 }

@@ -62,7 +62,7 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/portal/**").hasRole("CLIENT")
-                        .requestMatchers("/api/v1/auth/me", "/api/v1/notifications/**").authenticated()
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/password", "/api/v1/notifications/**").authenticated()
                         .requestMatchers("/api/**").hasAnyRole("ADMIN", "ACCOUNTANT", "ASSISTANT")
                         .anyRequest().authenticated())
                 .exceptionHandling(eh -> eh

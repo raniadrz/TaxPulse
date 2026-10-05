@@ -18,7 +18,7 @@ class JwtServiceTest {
 
     private static JwtService serviceAt(Instant now, String secret) {
         var props = new TaxPulseProperties(
-                new TaxPulseProperties.Security(secret, Duration.ofHours(1), "taxpulse"),
+                new TaxPulseProperties.Security(secret, Duration.ofHours(1), "taxpulse", null),
                 new TaxPulseProperties.Cors(List.of("http://localhost")),
                 new TaxPulseProperties.Reminders(true, List.of(1), "0 0 7 * * *", "Europe/Athens"),
                 new TaxPulseProperties.Storage("/tmp"),

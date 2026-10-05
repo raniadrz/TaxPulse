@@ -85,6 +85,9 @@ taxpulse:
     jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-please-0123456789abcdef}
     jwt-expiration: ${JWT_EXPIRATION:PT8H}
     jwt-issuer: taxpulse
+    # AES-256 key (base64 of 32 bytes) for stored client credentials. Generate: openssl rand -base64 32
+    # Keep a backup: losing it makes the stored credentials unreadable.
+    credentials-key: ${CREDENTIALS_ENCRYPTION_KEY:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   reminders:

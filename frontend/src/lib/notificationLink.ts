@@ -12,6 +12,8 @@ export function notificationLink(n: AppNotification, role: Role): string | null 
       case 'DOCUMENT_RECEIVED':
       case 'DOCUMENT_PROCESSED':
         return '/portal/documents'
+      case 'CREDENTIALS_UPDATED':
+        return '/portal/credentials'
       case 'STATUS_CHANGED':
       case 'DEADLINE_UPCOMING':
       case 'DEADLINE_OVERDUE':

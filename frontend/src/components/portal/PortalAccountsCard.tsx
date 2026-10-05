@@ -8,6 +8,7 @@ import { Field, Input } from '@/components/ui/FormField'
 import { ErrorAlert } from '@/components/ui/Alert'
 import { Spinner } from '@/components/ui/Spinner'
 import { usePortalAccounts, useSavePortalAccount } from '@/hooks/usePortal'
+import { PortalInvitationModal, type PortalCredentials } from './PortalInvitationModal'
 import { getErrorMessage, getFieldErrors } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import type { User, UUID } from '@/types/api'
@@ -15,9 +16,10 @@ import type { User, UUID } from '@/types/api'
 const MIN_PASSWORD = 10
 
 /** Logins that let the client (or its representatives) use the client portal. */
-export function PortalAccountsCard({ clientId, canEdit }: { clientId: UUID; canEdit: boolean }) {
+export function PortalAccountsCard({ clientId, clientName, canEdit }: { clientId: UUID; clientName: string; canEdit: boolean }) {
   const accounts = usePortalAccounts(clientId)
   const [editing, setEditing] = useState<{ open: boolean; user?: User }>({ open: false })
+  const [invitation, setInvitation] = useState<PortalCredentials | null>(null)
 
   return (
     <Card>
@@ -60,13 +62,24 @@ export function PortalAccountsCard({ clientId, canEdit }: { clientId: UUID; canE
       )}
       {editing.open && (
         <PortalAccountModal key={editing.user?.id ?? 'new'} clientId={clientId} user={editing.user}
-          onClose={() => setEditing({ open: false })} />
+          onClose={() => setEditing({ open: false })}
+          onCredentials={(c) => {
+            setEditing({ open: false })
+            setInvitation(c)
+          }} />
       )}
+      {invitation && <PortalInvitationModal credentials={invitation} clientName={clientName} onClose={() => setInvitation(null)} />}
     </Card>
   )
 }
 
-function PortalAccountModal({ clientId, user, onClose }: { clientId: UUID; user?: User; onClose: () => void }) {
+function PortalAccountModal({ clientId, user, onClose, onCredentials }: {
+  clientId: UUID
+  user?: User
+  onClose: () => void
+  /** Called after a save that set a password, so it can be handed to the client. */
+  onCredentials: (credentials: PortalCredentials) => void
+}) {
   const isEdit = !!user
   const save = useSavePortalAccount(clientId)
   const [email, setEmail] = useState(user?.email ?? '')
@@ -81,9 +94,13 @@ function PortalAccountModal({ clientId, user, onClose }: { clientId: UUID; user?
     e.preventDefault()
     if (passwordTooShort || (!isEdit && !password)) return
     if (isEdit) {
-      save.mutate({ userId: user.id, update: { fullName, active, password: password || undefined } }, { onSuccess: onClose })
+      save.mutate({ userId: user.id, update: { fullName, active, password: password || undefined } }, {
+        onSuccess: (saved) => (password ? onCredentials({ fullName, email: saved.email, password, reset: true }) : onClose()),
+      })
     } else {
-      save.mutate({ create: { email, fullName, password } }, { onSuccess: onClose })
+      save.mutate({ create: { email, fullName, password } }, {
+        onSuccess: (saved) => onCredentials({ fullName, email: saved.email, password, reset: false }),
+      })
     }
   }
 
@@ -109,7 +126,7 @@ function PortalAccountModal({ clientId, user, onClose }: { clientId: UUID; user?
         </Field>
         <Field label={isEdit ? 'Νέος κωδικός' : 'Αρχικός κωδικός'} required={!isEdit}
           error={passwordTooShort ? `Τουλάχιστον ${MIN_PASSWORD} χαρακτήρες` : errors.password}
-          hint={isEdit ? 'Αφήστε κενό για να μην αλλάξει.' : 'Δώστε τον στον πελάτη με ασφαλή τρόπο.'}>
+          hint={isEdit ? 'Αφήστε κενό για να μην αλλάξει.' : 'Μετά τη δημιουργία θα δείτε έτοιμη πρόσκληση για τον πελάτη.'}>
           <Input type="password" required={!isEdit} minLength={MIN_PASSWORD} maxLength={128} value={password}
             invalid={passwordTooShort} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
         </Field>
